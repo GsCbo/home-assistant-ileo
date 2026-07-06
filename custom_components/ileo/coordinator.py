@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 import logging
 
+import aiohttp
+
+import homeassistant.util.dt as dt_util
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
@@ -50,11 +53,16 @@ class IleoDataUpdateCoordinator(DataUpdateCoordinator[list[IleoReading]]):
         start_date = datetime.strptime(
             self.config_entry.data[CONF_START_DATE], "%Y-%m-%d"
         ).date()
-        end_date = date.today()
+        end_date = dt_util.now().date()
 
         try:
             return await self._client.async_fetch_readings(start_date, end_date)
         except IleoAuthError as err:
             raise ConfigEntryAuthFailed from err
-        except (IleoConnectionError, IleoCsvError) as err:
+        except (
+            IleoConnectionError,
+            IleoCsvError,
+            aiohttp.ClientError,
+            TimeoutError,
+        ) as err:
             raise UpdateFailed(str(err)) from err
