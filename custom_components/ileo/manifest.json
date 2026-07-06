@@ -1,0 +1,12 @@
+{
+  "domain": "ileo",
+  "name": "ILEO",
+  "after_dependencies": [],
+  "codeowners": ["@GsCbo"],
+  "config_flow": true,
+  "documentation": "https://github.com/GsCbo/home-assistant-ileo-scraper",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/GsCbo/home-assistant-ileo-scraper/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

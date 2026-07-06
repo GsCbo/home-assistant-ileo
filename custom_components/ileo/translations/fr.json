@@ -1,0 +1,24 @@
+{
+  "title": "ILEO",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connecter ILEO",
+        "description": "Renseignez les identifiants de votre compte ILEO.",
+        "data": {
+          "username": "Email",
+          "password": "Mot de passe",
+          "start_date": "Date de debut de l'historique"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Connexion impossible",
+      "invalid_auth": "Identifiants invalides",
+      "unknown": "Erreur inattendue"
+    },
+    "abort": {
+      "already_configured": "Ce compte ILEO est deja configure"
+    }
+  }
+}
