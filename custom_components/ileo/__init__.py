@@ -6,14 +6,19 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, PLATFORMS
+from .coordinator import IleoDataUpdateCoordinator
 
-type IleoConfigEntry = ConfigEntry[object]
+type IleoConfigEntry = ConfigEntry[IleoDataUpdateCoordinator]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: IleoConfigEntry) -> bool:
     """Set up ILEO from a config entry."""
+    coordinator = IleoDataUpdateCoordinator(hass, entry)
+    await coordinator.async_config_entry_first_refresh()
+
+    entry.runtime_data = coordinator
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = None
+    hass.data[DOMAIN][entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
