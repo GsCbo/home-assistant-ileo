@@ -5,7 +5,16 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 from datetime import date, datetime
+from html.parser import HTMLParser
 from io import StringIO
+from urllib.parse import urlencode
+
+try:
+    from .const import CONSUMPTION_URL, LOGIN_URL
+except ImportError:
+    BASE_URL = "https://www.mel-ileo.fr"
+    LOGIN_URL = f"{BASE_URL}/connexion.aspx"
+    CONSUMPTION_URL = f"{BASE_URL}/espaceperso/mes-consommations.aspx"
 
 
 class IleoError(Exception):
@@ -34,6 +43,67 @@ class IleoReading:
 
 
 REQUIRED_COLUMNS = {"date", "consommation (litres)", "index"}
+HIDDEN_LOGIN_FIELDS = ("__VIEWSTATE", "__VIEWSTATEGENERATOR", "__EVENTVALIDATION")
+
+
+class IleoApiClient:
+    """Async HTTP client for the ILEO private consumption pages."""
+
+    def __init__(self, session, username: str, password: str) -> None:
+        self._session = session
+        self._username = username
+        self._password = password
+
+    async def async_validate_credentials(self) -> bool:
+        """Validate configured credentials against the ILEO login page."""
+        async with self._session.get(LOGIN_URL) as response:
+            if response.status >= 400:
+                raise IleoConnectionError("Unable to load ILEO login page")
+            login_html = await response.text()
+
+        payload = self._build_login_payload(login_html)
+        async with self._session.post(LOGIN_URL, data=payload) as response:
+            if response.status >= 400:
+                raise IleoConnectionError("Unable to authenticate with ILEO")
+            final_url = str(response.url).lower()
+            body = await response.text()
+
+        if "connexion.aspx" in final_url or "je me connecte" in body.lower():
+            raise IleoAuthError("Invalid ILEO credentials")
+
+        return True
+
+    async def async_fetch_readings(
+        self, start_date: date, end_date: date
+    ) -> list[IleoReading]:
+        """Fetch and parse consumption readings for the requested date range."""
+        await self.async_validate_credentials()
+
+        query = urlencode(
+            {
+                "ex": "1",
+                "dateDebut": start_date.strftime("%d/%m/%Y"),
+                "dateFin": end_date.strftime("%d/%m/%Y"),
+            }
+        )
+        export_url = f"{CONSUMPTION_URL}?{query}"
+        async with self._session.get(export_url) as response:
+            if response.status >= 400:
+                raise IleoConnectionError("Unable to download ILEO consumption export")
+            csv_text = await response.text()
+
+        return parse_readings_csv(csv_text)
+
+    def _build_login_payload(self, login_html: str) -> dict[str, str]:
+        """Build the login form payload, preserving ASP.NET hidden fields."""
+        payload = {
+            name: value
+            for name in HIDDEN_LOGIN_FIELDS
+            if (value := _extract_input_value(login_html, name)) is not None
+        }
+        payload["email"] = self._username
+        payload["password"] = self._password
+        return payload
 
 
 def parse_readings_csv(csv_text: str) -> list[IleoReading]:
@@ -104,3 +174,25 @@ def _normalize_header(value: str) -> str:
 
 def _normalize_number(value: str) -> str:
     return value.replace(" ", "").replace("\u00a0", "").replace(",", ".")
+
+
+def _extract_input_value(html: str, name: str) -> str | None:
+    """Extract a named input's value from an HTML form."""
+    parser = _InputValueParser(name)
+    parser.feed(html)
+    return parser.value
+
+
+class _InputValueParser(HTMLParser):
+    def __init__(self, target_name: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self._target_name = target_name
+        self.value: str | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "input":
+            return
+
+        attributes = {key.lower(): value for key, value in attrs}
+        if attributes.get("name") == self._target_name:
+            self.value = attributes.get("value") or ""

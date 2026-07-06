@@ -6,6 +6,7 @@ import importlib.util
 import sys
 from datetime import date
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -20,7 +21,135 @@ sys.modules[spec.name] = ileo_api
 spec.loader.exec_module(ileo_api)
 
 IleoCsvError = ileo_api.IleoCsvError
+IleoAuthError = ileo_api.IleoAuthError
+IleoApiClient = ileo_api.IleoApiClient
 parse_readings_csv = ileo_api.parse_readings_csv
+
+
+class FakeResponse:
+    """Small async response double matching aiohttp's context-manager shape."""
+
+    def __init__(self, *, status: int = 200, url: str, body: str) -> None:
+        self.status = status
+        self.url = url
+        self._body = body
+
+    async def __aenter__(self) -> "FakeResponse":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
+
+    async def text(self) -> str:
+        return self._body
+
+
+class FakeSession:
+    """Queue-backed fake session recording GET and POST calls."""
+
+    def __init__(self, responses: list[FakeResponse]) -> None:
+        self._responses = responses
+        self.calls: list[tuple[str, str, dict[str, object]]] = []
+
+    def get(self, url: str) -> FakeResponse:
+        self.calls.append(("GET", url, {}))
+        return self._responses.pop(0)
+
+    def post(self, url: str, *, data: dict[str, str]) -> FakeResponse:
+        self.calls.append(("POST", url, {"data": data}))
+        return self._responses.pop(0)
+
+
+LOGIN_HTML = """
+<html>
+  <body>
+    <form>
+      <input type="hidden" name="__VIEWSTATE" value="view-state-token" />
+      <input type="hidden" name="__VIEWSTATEGENERATOR" value="generator-token" />
+      <input type="hidden" name="__EVENTVALIDATION" value="event-validation-token" />
+    </form>
+  </body>
+</html>
+"""
+
+
+@pytest.mark.asyncio
+async def test_async_validate_credentials_posts_credentials_and_hidden_fields() -> None:
+    """The login POST preserves ASP.NET fields and reaches the private page."""
+    session = FakeSession(
+        [
+            FakeResponse(url=ileo_api.LOGIN_URL, body=LOGIN_HTML),
+            FakeResponse(url=ileo_api.CONSUMPTION_URL, body="<html>mes consommations</html>"),
+        ]
+    )
+    client = IleoApiClient(session, "user@example.test", "secret")
+
+    result = await client.async_validate_credentials()
+
+    assert result is True
+    assert session.calls[0] == ("GET", ileo_api.LOGIN_URL, {})
+    method, url, kwargs = session.calls[1]
+    assert method == "POST"
+    assert url == ileo_api.LOGIN_URL
+    assert kwargs["data"] == {
+        "__VIEWSTATE": "view-state-token",
+        "__VIEWSTATEGENERATOR": "generator-token",
+        "__EVENTVALIDATION": "event-validation-token",
+        "email": "user@example.test",
+        "password": "secret",
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("final_url", "body"),
+    [
+        (ileo_api.LOGIN_URL, "<html>mes consommations</html>"),
+        (ileo_api.CONSUMPTION_URL, "<button>Je me connecte</button>"),
+    ],
+)
+async def test_async_validate_credentials_raises_when_login_page_remains(
+    final_url: str, body: str
+) -> None:
+    """Authentication fails when the final page is still the login screen."""
+    session = FakeSession(
+        [
+            FakeResponse(url=ileo_api.LOGIN_URL, body=LOGIN_HTML),
+            FakeResponse(url=final_url, body=body),
+        ]
+    )
+    client = IleoApiClient(session, "user@example.test", "wrong")
+
+    with pytest.raises(IleoAuthError):
+        await client.async_validate_credentials()
+
+
+@pytest.mark.asyncio
+async def test_async_fetch_readings_validates_session_and_downloads_csv_export() -> None:
+    """Fetching readings logs in, requests the CSV export, and parses readings."""
+    csv_text = "date;consommation (litres);index\n02/03/2025;180;120180\n"
+    session = FakeSession(
+        [
+            FakeResponse(url=ileo_api.LOGIN_URL, body=LOGIN_HTML),
+            FakeResponse(url=ileo_api.CONSUMPTION_URL, body="<html>mes consommations</html>"),
+            FakeResponse(url=ileo_api.CONSUMPTION_URL, body=csv_text),
+        ]
+    )
+    client = IleoApiClient(session, "user@example.test", "secret")
+
+    readings = await client.async_fetch_readings(date(2025, 3, 1), date(2025, 3, 31))
+
+    assert readings == [ileo_api.IleoReading(date(2025, 3, 2), 180.0, 120180)]
+    method, export_url, kwargs = session.calls[2]
+    assert method == "GET"
+    assert kwargs == {}
+    parsed_url = urlparse(export_url)
+    assert parsed_url.scheme + "://" + parsed_url.netloc + parsed_url.path == ileo_api.CONSUMPTION_URL
+    assert parse_qs(parsed_url.query) == {
+        "ex": ["1"],
+        "dateDebut": ["01/03/2025"],
+        "dateFin": ["31/03/2025"],
+    }
 
 
 def test_parse_readings_csv_filters_zero_and_missing_values() -> None:
