@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 
 import aiohttp
@@ -39,6 +40,16 @@ class IleoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             username = user_input[CONF_USERNAME].strip().lower()
             password = user_input[CONF_PASSWORD]
             start_date = user_input.get(CONF_START_DATE, DEFAULT_START_DATE)
+
+            try:
+                datetime.strptime(start_date, "%Y-%m-%d").date()
+            except ValueError:
+                errors[CONF_START_DATE] = "invalid_date"
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=STEP_USER_DATA_SCHEMA,
+                    errors=errors,
+                )
 
             await self.async_set_unique_id(username)
             self._abort_if_unique_id_configured()

@@ -90,6 +90,32 @@ async def test_valid_input_uses_default_start_date(hass):
     assert result["data"][CONF_START_DATE] == DEFAULT_START_DATE
 
 
+async def test_invalid_start_date_shows_field_error_without_validating_credentials(hass):
+    """Invalid start dates are rejected before the API credentials are checked."""
+    with (
+        patch("custom_components.ileo.config_flow.async_get_clientsession") as get_session,
+        patch("custom_components.ileo.config_flow.IleoApiClient") as api_client,
+    ):
+        client = api_client.return_value
+        client.async_validate_credentials = AsyncMock(return_value=True)
+
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_USER},
+            data={
+                CONF_USERNAME: "user@example.com",
+                CONF_PASSWORD: "secret",
+                CONF_START_DATE: "2026/01/15",
+            },
+        )
+
+    assert result["type"] == config_entries.FlowResultType.FORM
+    assert result["errors"] == {CONF_START_DATE: "invalid_date"}
+    get_session.assert_not_called()
+    api_client.assert_not_called()
+    client.async_validate_credentials.assert_not_awaited()
+
+
 async def test_auth_error_maps_to_invalid_auth(hass):
     """Authentication failures show invalid_auth on the form."""
     with (

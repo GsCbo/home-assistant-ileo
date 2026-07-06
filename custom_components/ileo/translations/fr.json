@@ -14,6 +14,7 @@
     },
     "error": {
       "cannot_connect": "Connexion impossible",
+      "invalid_date": "Date invalide",
       "invalid_auth": "Identifiants invalides",
       "unknown": "Erreur inattendue"
     },
