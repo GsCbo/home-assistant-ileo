@@ -14,6 +14,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import UnitOfVolume
 
 from custom_components.ileo.api import IleoReading
+from custom_components.ileo.const import DOMAIN
 from custom_components.ileo.sensor import async_setup_entry
 
 
@@ -39,6 +40,14 @@ async def _setup_entities(entry: Mock) -> list:
     return entities
 
 
+def _assert_common_metadata(entity, name: str) -> None:
+    assert entity.has_entity_name is True
+    assert entity.name == name
+    assert entity.device_info["identifiers"] == {(DOMAIN, "user@example.com")}
+    assert entity.device_info["manufacturer"] == "ILEO"
+    assert entity.device_info["name"] == "ILEO"
+
+
 @pytest.mark.asyncio
 async def test_water_index_sensor_uses_latest_index_and_energy_metadata() -> None:
     """The water index sensor exposes a total increasing litre meter."""
@@ -56,6 +65,7 @@ async def test_water_index_sensor_uses_latest_index_and_energy_metadata() -> Non
     assert water_index.device_class == SensorDeviceClass.WATER
     assert water_index.state_class == SensorStateClass.TOTAL_INCREASING
     assert water_index.unique_id == "user@example.com_water_index"
+    _assert_common_metadata(water_index, "Water index")
 
 
 @pytest.mark.asyncio
@@ -71,6 +81,8 @@ async def test_last_consumption_sensor_uses_latest_litres_and_measurement_metada
     assert last_consumption.native_unit_of_measurement == UnitOfVolume.LITERS
     assert last_consumption.device_class == SensorDeviceClass.WATER
     assert last_consumption.state_class == SensorStateClass.MEASUREMENT
+    assert last_consumption.unique_id == "user@example.com_last_consumption"
+    _assert_common_metadata(last_consumption, "Last consumption")
 
 
 @pytest.mark.asyncio
@@ -84,6 +96,8 @@ async def test_last_reading_date_sensor_uses_latest_date() -> None:
 
     assert last_reading_date.native_value == date(2026, 7, 5)
     assert last_reading_date.device_class == SensorDeviceClass.DATE
+    assert last_reading_date.unique_id == "user@example.com_last_reading_date"
+    _assert_common_metadata(last_reading_date, "Last reading date")
 
 
 @pytest.mark.asyncio
