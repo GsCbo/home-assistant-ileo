@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
+import re
 
 import aiohttp
 import voluptuous as vol
@@ -17,6 +18,7 @@ from .const import CONF_START_DATE, DEFAULT_START_DATE, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+START_DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -40,6 +42,14 @@ class IleoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             username = user_input[CONF_USERNAME].strip().lower()
             password = user_input[CONF_PASSWORD]
             start_date = user_input.get(CONF_START_DATE, DEFAULT_START_DATE)
+
+            if not START_DATE_PATTERN.fullmatch(start_date):
+                errors[CONF_START_DATE] = "invalid_date"
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=STEP_USER_DATA_SCHEMA,
+                    errors=errors,
+                )
 
             try:
                 datetime.strptime(start_date, "%Y-%m-%d").date()
