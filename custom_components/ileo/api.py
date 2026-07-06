@@ -39,17 +39,17 @@ REQUIRED_COLUMNS = {"date", "consommation (litres)", "index"}
 def parse_readings_csv(csv_text: str) -> list[IleoReading]:
     """Parse an ILEO CSV export into chronological positive readings."""
     reader = csv.DictReader(StringIO(csv_text), delimiter=";")
-    fieldnames = set(reader.fieldnames or [])
-    missing_columns = REQUIRED_COLUMNS - fieldnames
+    columns = {_normalize_header(fieldname): fieldname for fieldname in reader.fieldnames or []}
+    missing_columns = REQUIRED_COLUMNS - set(columns)
     if missing_columns:
         missing = ", ".join(sorted(missing_columns))
         raise IleoCsvError(f"Missing required CSV columns: {missing}")
 
     readings: list[IleoReading] = []
     for row_number, row in enumerate(reader, start=2):
-        raw_date = (row["date"] or "").strip()
-        raw_litres = (row["consommation (litres)"] or "").strip()
-        raw_index = (row["index"] or "").strip()
+        raw_date = (row[columns["date"]] or "").strip()
+        raw_litres = (row[columns["consommation (litres)"]] or "").strip()
+        raw_index = (row[columns["index"]] or "").strip()
 
         if not raw_date or not raw_litres or not raw_index:
             continue
@@ -81,14 +81,14 @@ def _parse_date(value: str, row_number: int) -> date:
 
 def _parse_litres(value: str, row_number: int) -> float:
     try:
-        return float(value.replace(",", "."))
+        return float(_normalize_number(value))
     except ValueError as err:
         raise IleoCsvError(f"Invalid litres on CSV row {row_number}: {value}") from err
 
 
 def _parse_index(value: str, row_number: int) -> int:
     try:
-        index_value = float(value.replace(",", "."))
+        index_value = float(_normalize_number(value))
     except ValueError as err:
         raise IleoCsvError(f"Invalid index on CSV row {row_number}: {value}") from err
 
@@ -96,3 +96,11 @@ def _parse_index(value: str, row_number: int) -> int:
         raise IleoCsvError(f"Invalid index on CSV row {row_number}: {value}")
 
     return int(index_value)
+
+
+def _normalize_header(value: str) -> str:
+    return value.lstrip("\ufeff").strip().lower()
+
+
+def _normalize_number(value: str) -> str:
+    return value.replace(" ", "").replace("\u00a0", "").replace(",", ".")
