@@ -70,6 +70,8 @@ LOGIN_HTML = """
       <input type="hidden" name="__EVENTVALIDATION" value="event-validation-token" />
       <input type="hidden" name="__RequestVerificationToken" value="request-token" />
       <input type="hidden" name="ctl00$hidden" value="control-token" />
+      <input name="email" />
+      <input name="password" />
     </form>
   </body>
 </html>
@@ -132,6 +134,25 @@ async def test_async_validate_credentials_raises_connection_error_for_unexpected
             FakeResponse(
                 url=ileo_api.LOGIN_URL,
                 body="<html><h1>Service unavailable</h1><p>Try later</p></html>",
+            ),
+        ]
+    )
+    client = IleoApiClient(session, "user@example.test", "secret")
+
+    with pytest.raises(IleoConnectionError):
+        await client.async_validate_credentials()
+
+    assert len(session.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_async_validate_credentials_rejects_hidden_only_unexpected_page() -> None:
+    """A hidden input alone is not enough evidence of the login form."""
+    session = FakeSession(
+        [
+            FakeResponse(
+                url=ileo_api.LOGIN_URL,
+                body='<html><input type="hidden" name="tracking" value="abc" /></html>',
             ),
         ]
     )

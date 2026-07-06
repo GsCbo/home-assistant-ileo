@@ -61,10 +61,10 @@ class IleoApiClient:
                 raise IleoConnectionError("Unable to load ILEO login page")
             login_html = await response.text()
 
-        payload = self._build_login_payload(login_html)
-        if len(payload) == 2 and not _contains_login_form_marker(login_html):
+        if not _has_login_form_shape(login_html):
             raise IleoConnectionError("ILEO login page did not contain the expected form")
 
+        payload = self._build_login_payload(login_html)
         async with self._session.post(LOGIN_URL, data=payload) as response:
             if response.status >= 400:
                 raise IleoConnectionError("Unable to authenticate with ILEO")
@@ -194,11 +194,24 @@ def _contains_login_form_marker(html: str) -> bool:
     return any(marker in normalized_html for marker in LOGIN_FORM_MARKERS)
 
 
+def _has_login_form_shape(html: str) -> bool:
+    parser = _InputParser()
+    parser.feed(html)
+    return parser.has_credentials_inputs or _contains_login_form_marker(html)
+
+
 class _InputParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.hidden_inputs: dict[str, str] = {}
         self.input_values: dict[str, str] = {}
+        self._input_names: set[str] = set()
+        self._input_ids: set[str] = set()
+
+    @property
+    def has_credentials_inputs(self) -> bool:
+        identifiers = self._input_names | self._input_ids
+        return "email" in identifiers and "password" in identifiers
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag.lower() != "input":
@@ -206,10 +219,15 @@ class _InputParser(HTMLParser):
 
         attributes = {key.lower(): value for key, value in attrs}
         name = attributes.get("name")
-        if name is None:
-            return
+        input_id = attributes.get("id")
 
-        value = attributes.get("value") or ""
-        self.input_values[name] = value
-        if (attributes.get("type") or "").lower() == "hidden":
-            self.hidden_inputs[name] = value
+        if name is not None:
+            self._input_names.add(name.lower())
+        if input_id is not None:
+            self._input_ids.add(input_id.lower())
+
+        if name is not None:
+            value = attributes.get("value") or ""
+            self.input_values[name] = value
+            if (attributes.get("type") or "").lower() == "hidden":
+                self.hidden_inputs[name] = value
