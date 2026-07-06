@@ -9,9 +9,9 @@ from html.parser import HTMLParser
 from io import StringIO
 from urllib.parse import urlencode
 
-try:
+if __package__:
     from .const import CONSUMPTION_URL, LOGIN_URL
-except ImportError:
+else:
     BASE_URL = "https://www.mel-ileo.fr"
     LOGIN_URL = f"{BASE_URL}/connexion.aspx"
     CONSUMPTION_URL = f"{BASE_URL}/espaceperso/mes-consommations.aspx"
@@ -43,7 +43,7 @@ class IleoReading:
 
 
 REQUIRED_COLUMNS = {"date", "consommation (litres)", "index"}
-HIDDEN_LOGIN_FIELDS = ("__VIEWSTATE", "__VIEWSTATEGENERATOR", "__EVENTVALIDATION")
+LOGIN_FORM_MARKERS = ("je me connecte",)
 
 
 class IleoApiClient:
@@ -62,6 +62,9 @@ class IleoApiClient:
             login_html = await response.text()
 
         payload = self._build_login_payload(login_html)
+        if len(payload) == 2 and not _contains_login_form_marker(login_html):
+            raise IleoConnectionError("ILEO login page did not contain the expected form")
+
         async with self._session.post(LOGIN_URL, data=payload) as response:
             if response.status >= 400:
                 raise IleoConnectionError("Unable to authenticate with ILEO")
@@ -96,11 +99,7 @@ class IleoApiClient:
 
     def _build_login_payload(self, login_html: str) -> dict[str, str]:
         """Build the login form payload, preserving ASP.NET hidden fields."""
-        payload = {
-            name: value
-            for name in HIDDEN_LOGIN_FIELDS
-            if (value := _extract_input_value(login_html, name)) is not None
-        }
+        payload = _extract_hidden_inputs(login_html)
         payload["email"] = self._username
         payload["password"] = self._password
         return payload
@@ -178,21 +177,39 @@ def _normalize_number(value: str) -> str:
 
 def _extract_input_value(html: str, name: str) -> str | None:
     """Extract a named input's value from an HTML form."""
-    parser = _InputValueParser(name)
+    parser = _InputParser()
     parser.feed(html)
-    return parser.value
+    return parser.input_values.get(name)
 
 
-class _InputValueParser(HTMLParser):
-    def __init__(self, target_name: str) -> None:
+def _extract_hidden_inputs(html: str) -> dict[str, str]:
+    """Extract all hidden input values from an HTML form."""
+    parser = _InputParser()
+    parser.feed(html)
+    return parser.hidden_inputs
+
+
+def _contains_login_form_marker(html: str) -> bool:
+    normalized_html = html.lower()
+    return any(marker in normalized_html for marker in LOGIN_FORM_MARKERS)
+
+
+class _InputParser(HTMLParser):
+    def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self._target_name = target_name
-        self.value: str | None = None
+        self.hidden_inputs: dict[str, str] = {}
+        self.input_values: dict[str, str] = {}
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag.lower() != "input":
             return
 
         attributes = {key.lower(): value for key, value in attrs}
-        if attributes.get("name") == self._target_name:
-            self.value = attributes.get("value") or ""
+        name = attributes.get("name")
+        if name is None:
+            return
+
+        value = attributes.get("value") or ""
+        self.input_values[name] = value
+        if (attributes.get("type") or "").lower() == "hidden":
+            self.hidden_inputs[name] = value

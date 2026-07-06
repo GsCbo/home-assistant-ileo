@@ -22,6 +22,7 @@ spec.loader.exec_module(ileo_api)
 
 IleoCsvError = ileo_api.IleoCsvError
 IleoAuthError = ileo_api.IleoAuthError
+IleoConnectionError = ileo_api.IleoConnectionError
 IleoApiClient = ileo_api.IleoApiClient
 parse_readings_csv = ileo_api.parse_readings_csv
 
@@ -67,6 +68,8 @@ LOGIN_HTML = """
       <input type="hidden" name="__VIEWSTATE" value="view-state-token" />
       <input type="hidden" name="__VIEWSTATEGENERATOR" value="generator-token" />
       <input type="hidden" name="__EVENTVALIDATION" value="event-validation-token" />
+      <input type="hidden" name="__RequestVerificationToken" value="request-token" />
+      <input type="hidden" name="ctl00$hidden" value="control-token" />
     </form>
   </body>
 </html>
@@ -95,9 +98,49 @@ async def test_async_validate_credentials_posts_credentials_and_hidden_fields() 
         "__VIEWSTATE": "view-state-token",
         "__VIEWSTATEGENERATOR": "generator-token",
         "__EVENTVALIDATION": "event-validation-token",
+        "__RequestVerificationToken": "request-token",
+        "ctl00$hidden": "control-token",
         "email": "user@example.test",
         "password": "secret",
     }
+
+
+def test_build_login_payload_preserves_arbitrary_hidden_fields() -> None:
+    """All hidden fields from the login form are submitted with credentials."""
+    client = IleoApiClient(FakeSession([]), "user@example.test", "secret")
+
+    payload = client._build_login_payload(
+        """
+        <input type="hidden" name="__RequestVerificationToken" value="request-token" />
+        <input type="hidden" name="ctl00$hidden" value="control-token" />
+        """
+    )
+
+    assert payload == {
+        "__RequestVerificationToken": "request-token",
+        "ctl00$hidden": "control-token",
+        "email": "user@example.test",
+        "password": "secret",
+    }
+
+
+@pytest.mark.asyncio
+async def test_async_validate_credentials_raises_connection_error_for_unexpected_login_page() -> None:
+    """A 200 response without the expected login form shape is treated as connection drift."""
+    session = FakeSession(
+        [
+            FakeResponse(
+                url=ileo_api.LOGIN_URL,
+                body="<html><h1>Service unavailable</h1><p>Try later</p></html>",
+            ),
+        ]
+    )
+    client = IleoApiClient(session, "user@example.test", "secret")
+
+    with pytest.raises(IleoConnectionError):
+        await client.async_validate_credentials()
+
+    assert len(session.calls) == 1
 
 
 @pytest.mark.asyncio
@@ -145,6 +188,8 @@ async def test_async_fetch_readings_validates_session_and_downloads_csv_export()
     assert kwargs == {}
     parsed_url = urlparse(export_url)
     assert parsed_url.scheme + "://" + parsed_url.netloc + parsed_url.path == ileo_api.CONSUMPTION_URL
+    assert "dateDebut=01%2F03%2F2025" in export_url
+    assert "dateFin=31%2F03%2F2025" in export_url
     assert parse_qs(parsed_url.query) == {
         "ex": ["1"],
         "dateDebut": ["01/03/2025"],
