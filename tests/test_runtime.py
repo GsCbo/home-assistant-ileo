@@ -1,0 +1,148 @@
+"""Tests for the app synchronization runtime."""
+
+from __future__ import annotations
+
+import json
+import sys
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).parents[1] / "ileo"))
+
+from app.config import AppConfig
+from app.ileo_client import IleoReading
+from app.main import read_last_sync, sync_once, write_last_sync
+from app.statistics import WATER_ENTITY_ID
+
+
+class FakeIleoClient:
+    def __init__(self, readings: list[IleoReading]) -> None:
+        self.readings = readings
+        self.calls: list[tuple[date, date]] = []
+
+    async def async_fetch_readings(
+        self, start_date: date, end_date: date
+    ) -> list[IleoReading]:
+        self.calls.append((start_date, end_date))
+        return self.readings
+
+
+class FakeHomeAssistantClient:
+    def __init__(self) -> None:
+        self.states: list[tuple[str, str | int | float, dict[str, Any]]] = []
+        self.statistics: list[dict[str, Any]] = []
+
+    async def async_set_state(
+        self,
+        entity_id: str,
+        state: str | int | float,
+        attributes: dict[str, Any],
+    ) -> dict[str, Any]:
+        self.states.append((entity_id, state, attributes))
+        return {}
+
+    async def async_import_statistics(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self.statistics.append(payload)
+        return {}
+
+
+def _config(mode: str = "sync") -> AppConfig:
+    return AppConfig(
+        username="user@example.test",
+        password="secret",
+        start_date=date(2025, 3, 1),
+        sync_interval_hours=4,
+        mode=mode,
+    )
+
+
+@pytest.mark.asyncio
+async def test_sync_once_publishes_state_statistics_and_marker(tmp_path: Path) -> None:
+    state_path = tmp_path / "last_sync.json"
+    ileo_client = FakeIleoClient(
+        [
+            IleoReading(date(2025, 3, 1), 120.0, 120000),
+            IleoReading(date(2025, 3, 2), 180.0, 120180),
+        ]
+    )
+    ha_client = FakeHomeAssistantClient()
+
+    result = await sync_once(
+        _config(),
+        ileo_client,
+        ha_client,
+        state_path=state_path,
+        today=date(2025, 3, 31),
+    )
+
+    assert ileo_client.calls == [(date(2025, 3, 1), date(2025, 3, 31))]
+    assert ha_client.states[0][0] == WATER_ENTITY_ID
+    assert ha_client.states[0][1] == "120180"
+    assert len(ha_client.statistics[0]["stats"]) == 2
+    assert result.fetched_readings == 2
+    assert result.imported_readings == 2
+    assert json.loads(state_path.read_text(encoding="utf-8")) == {
+        "last_imported_date": "2025-03-02",
+        "latest_index_litres": 120180,
+    }
+
+
+@pytest.mark.asyncio
+async def test_sync_once_imports_only_newer_readings(tmp_path: Path) -> None:
+    state_path = tmp_path / "last_sync.json"
+    write_last_sync(state_path, {"last_imported_date": "2025-03-01"})
+    ileo_client = FakeIleoClient(
+        [
+            IleoReading(date(2025, 3, 1), 120.0, 120000),
+            IleoReading(date(2025, 3, 2), 180.0, 120180),
+        ]
+    )
+    ha_client = FakeHomeAssistantClient()
+
+    result = await sync_once(
+        _config(),
+        ileo_client,
+        ha_client,
+        state_path=state_path,
+        today=date(2025, 3, 31),
+    )
+
+    assert result.imported_readings == 1
+    assert ha_client.statistics[0]["stats"] == [
+        {
+            "start": "2025-03-02T00:00:00+00:00",
+            "state": 120180,
+            "sum": 120180,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sync_once_reset_mode_is_non_destructive(tmp_path: Path) -> None:
+    ileo_client = FakeIleoClient([IleoReading(date(2025, 3, 1), 120.0, 120000)])
+    ha_client = FakeHomeAssistantClient()
+
+    result = await sync_once(
+        _config(mode="reset"),
+        ileo_client,
+        ha_client,
+        state_path=tmp_path / "last_sync.json",
+    )
+
+    assert result.imported_readings == 0
+    assert ileo_client.calls == []
+    assert ha_client.states == []
+    assert ha_client.statistics == []
+
+
+def test_read_last_sync_returns_empty_state_for_missing_or_invalid_file(tmp_path: Path) -> None:
+    assert read_last_sync(tmp_path / "missing.json") == {}
+
+    invalid_path = tmp_path / "invalid.json"
+    invalid_path.write_text("{", encoding="utf-8")
+
+    assert read_last_sync(invalid_path) == {}
+
