@@ -1,26 +1,25 @@
-# ILEO for Home Assistant
+# ILEO Home Assistant App
 
 ## Status
 
-HACS-ready custom integration for Home Assistant.
+Home Assistant App repository for synchronizing ILEO water readings with Home Assistant Energy statistics.
 
-## Installation with HACS
+## Installation
 
-1. In HACS, add this repository as a custom repository.
-2. Select the category `Integration`.
-3. Install the ILEO integration.
-4. Restart Home Assistant.
-5. Go to Settings > Devices & services > Add integration > ILEO.
+1. Open Home Assistant.
+2. Go to Settings > Apps > Store.
+3. Open the repository menu.
+4. Add `https://github.com/GsCbo/home-assistant-ileo-scraper`.
+5. Install the ILEO app.
+6. Configure the app and start it.
 
 ## Configuration
 
-Configure the integration with your ILEO email and password.
-
-The history start date is optional and defaults to `2025-03-01`.
+Configure the app with your ILEO email, password, optional history start date, synchronization interval, and mode.
 
 ## Energy Dashboard
 
-After the first successful update, use the generated water index entity in Settings > Dashboards > Energy > Water consumption.
+After the first successful synchronization, use the generated ILEO water statistic in Settings > Dashboards > Energy > Water consumption.
 
 The water index entity exposes the metadata expected by the Energy Dashboard:
 
