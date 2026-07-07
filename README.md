@@ -2,7 +2,7 @@
 
 ## Status
 
-Migrated from Docker/MQTT scraper toward HACS-ready custom integration.
+HACS-ready custom integration for Home Assistant.
 
 ## Installation with HACS
 
@@ -27,12 +27,6 @@ The water index entity exposes the metadata expected by the Energy Dashboard:
 - Device class: `water`
 - State class: `total_increasing`
 - Unit: `L`
-
-## Legacy Docker/MQTT scraper
-
-The previous Docker/MQTT workflow remains in this repository as a legacy reference during the migration.
-
-Use the native Home Assistant integration once live ILEO login and CSV download are validated.
 
 ## Development
 
