@@ -1,29 +1,36 @@
 # ILEO
 
-ILEO is a Home Assistant App that synchronizes water readings from an ILEO account into Home Assistant so they can be used by the Energy dashboard.
+App Home Assistant pour synchroniser votre consommation d'eau ILEO avec le tableau de bord Énergie.
+
+Elle récupère les relevés disponibles depuis votre espace client ILEO, les importe dans les statistiques longue durée de Home Assistant et met à jour l'entité `sensor.ileo_water_index`.
 
 ## Configuration
 
 ```yaml
-username: your-email@example.com
-password: your-password
+username: votre-email@example.com
+password: votre-mot-de-passe
 start_date: "2025-03-01"
 sync_interval_hours: 4
 mode: sync
 ```
 
-### Options
+## Options
 
-- `username`: ILEO account email.
-- `password`: ILEO password.
-- `start_date`: first date to import, in `YYYY-MM-DD` format.
-- `sync_interval_hours`: delay between synchronization runs.
-- `mode`: `sync` to import readings, or `reset` to log reset intent without deleting data in v1.
+- `username` : adresse e-mail de votre compte ILEO.
+- `password` : mot de passe de votre compte ILEO.
+- `start_date` : première date à importer, au format `YYYY-MM-DD`.
+- `sync_interval_hours` : fréquence de synchronisation en heures, `4` par défaut.
+- `mode` : `sync` pour importer les relevés. `reset` ne supprime rien pour l'instant.
 
-## Energy
+## Fonctionnement
 
-The app creates and updates an ILEO water index entity/statistic using liters and water metadata for the Home Assistant Energy dashboard.
+Au démarrage, l'app attend un décalage stable entre 0 et 30 minutes afin d'éviter que toutes les installations appellent ILEO au même moment.
+
+Ensuite, elle synchronise les données selon la fréquence configurée et les publie comme statistique d'eau compatible avec le tableau de bord Énergie.
 
 ## Notes
 
-Live ILEO login and CSV export depend on the ILEO website. If the portal changes its login form or CSV format, the app logs a clear error instead of importing partial data.
+- Les données dépendent de ce que le portail ILEO expose dans son export.
+- L'app n'est pas une intégration officielle ILEO.
+- En cas de problème, consultez l'onglet `Journal` de l'app.
+
