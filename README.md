@@ -9,7 +9,7 @@ Home Assistant App repository for synchronizing ILEO water readings with Home As
 1. Open Home Assistant.
 2. Go to Settings > Apps > Store.
 3. Open the repository menu.
-4. Add `https://github.com/GsCbo/home-assistant-ileo-scraper`.
+4. Add `https://github.com/GsCbo/home-assistant-ileo`.
 5. Install the ILEO app.
 6. Configure the app and start it.
 
