@@ -1,6 +1,8 @@
 # ILEO for Home Assistant
 
-Status: migrated from Docker/MQTT scraper toward HACS-ready custom integration.
+## Status
+
+Migrated from Docker/MQTT scraper toward HACS-ready custom integration.
 
 ## Installation with HACS
 
