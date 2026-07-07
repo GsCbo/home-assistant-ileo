@@ -14,7 +14,14 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "ileo"))
 
 from app.config import AppConfig
 from app.ileo_client import IleoReading
-from app.main import read_last_sync, sync_once, write_last_sync
+from app.main import (
+    MAX_INITIAL_JITTER_SECONDS,
+    calculate_initial_jitter_seconds,
+    get_or_create_installation_id,
+    read_last_sync,
+    sync_once,
+    write_last_sync,
+)
 from app.statistics import WATER_ENTITY_ID
 
 
@@ -93,7 +100,13 @@ async def test_sync_once_publishes_state_statistics_and_marker(tmp_path: Path) -
 @pytest.mark.asyncio
 async def test_sync_once_imports_only_newer_readings(tmp_path: Path) -> None:
     state_path = tmp_path / "last_sync.json"
-    write_last_sync(state_path, {"last_imported_date": "2025-03-01"})
+    write_last_sync(
+        state_path,
+        {
+            "installation_id": "stable-installation",
+            "last_imported_date": "2025-03-01",
+        },
+    )
     ileo_client = FakeIleoClient(
         [
             IleoReading(date(2025, 3, 1), 120.0, 120000),
@@ -111,6 +124,7 @@ async def test_sync_once_imports_only_newer_readings(tmp_path: Path) -> None:
     )
 
     assert result.imported_readings == 1
+    assert read_last_sync(state_path)["installation_id"] == "stable-installation"
     assert ha_client.statistics[0]["stats"] == [
         {
             "start": "2025-03-02T00:00:00+00:00",
@@ -146,3 +160,28 @@ def test_read_last_sync_returns_empty_state_for_missing_or_invalid_file(tmp_path
 
     assert read_last_sync(invalid_path) == {}
 
+
+def test_get_or_create_installation_id_reuses_persisted_value(tmp_path: Path) -> None:
+    state_path = tmp_path / "last_sync.json"
+    write_last_sync(state_path, {"installation_id": "stable-installation"})
+
+    installation_id = get_or_create_installation_id(state_path)
+
+    assert installation_id == "stable-installation"
+    assert read_last_sync(state_path) == {"installation_id": "stable-installation"}
+
+
+def test_get_or_create_installation_id_persists_new_value(tmp_path: Path) -> None:
+    state_path = tmp_path / "last_sync.json"
+
+    installation_id = get_or_create_installation_id(state_path)
+
+    assert installation_id
+    assert read_last_sync(state_path) == {"installation_id": installation_id}
+
+
+def test_calculate_initial_jitter_seconds_is_stable_and_bounded() -> None:
+    jitter = calculate_initial_jitter_seconds("stable-installation")
+
+    assert jitter == calculate_initial_jitter_seconds("stable-installation")
+    assert 0 <= jitter <= MAX_INITIAL_JITTER_SECONDS
