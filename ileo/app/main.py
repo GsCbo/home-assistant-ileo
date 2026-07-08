@@ -26,6 +26,7 @@ from .statistics import (
 STATE_PATH = Path("/data/last_sync.json")
 INSTALLATION_ID_KEY = "installation_id"
 MAX_INITIAL_JITTER_SECONDS = 30 * 60
+ERROR_RETRY_SECONDS = 5 * 60
 
 LOGGER = logging.getLogger(__name__)
 
@@ -189,6 +190,11 @@ def calculate_sync_interval_seconds(sync_interval_hours: int, installation_id: s
     return sync_interval_hours * 3600 + calculate_initial_jitter_seconds(installation_id)
 
 
+def calculate_error_retry_seconds() -> int:
+    """Calculate the delay before retrying after a failed synchronization."""
+    return ERROR_RETRY_SECONDS
+
+
 async def run_loop(config: AppConfig, state_path: Path = STATE_PATH) -> None:
     """Run synchronization forever using Supervisor options."""
     import aiohttp
@@ -204,11 +210,14 @@ async def run_loop(config: AppConfig, state_path: Path = STATE_PATH) -> None:
         ileo_client = IleoApiClient(session, config.username, config.password)
         ha_client = HomeAssistantClient(session)
         while True:
+            delay = sync_interval
             try:
                 await sync_once(config, ileo_client, ha_client, state_path=state_path)
             except Exception:
                 LOGGER.exception("ILEO synchronization failed")
-            await asyncio.sleep(sync_interval)
+                delay = calculate_error_retry_seconds()
+                LOGGER.info("Retrying ILEO sync in %s seconds", delay)
+            await asyncio.sleep(delay)
 
 
 def configure_logging() -> None:

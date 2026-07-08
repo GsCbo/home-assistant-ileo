@@ -16,6 +16,7 @@ from app.statistics import (
     import_statistics_payload,
     latest_state,
     meter_entity_id,
+    meter_statistic_id,
 )
 
 
@@ -26,6 +27,13 @@ def test_meter_entity_id_keeps_single_meter_compatibility() -> None:
 def test_meter_entity_id_slugs_explicit_meter_id() -> None:
     assert meter_entity_id("Contrat 12 Rue de Lille") == (
         "sensor.ileo_water_index_contrat_12_rue_de_lille"
+    )
+
+
+def test_meter_statistic_id_uses_recorder_import_format() -> None:
+    assert meter_statistic_id("default") == "ileo:water_index"
+    assert meter_statistic_id("Contrat 12 Rue de Lille") == (
+        "ileo:water_index_contrat_12_rue_de_lille"
     )
 
 
@@ -84,7 +92,8 @@ def test_import_statistics_payload_is_sorted_and_uses_water_metadata() -> None:
         "has_sum": True,
         "name": "ILEO water index",
         "source": "ileo",
-        "statistic_id": "sensor.ileo_water_index",
+        "statistic_id": "ileo:water_index",
+        "unit_class": "volume",
         "unit_of_measurement": "L",
     }
     assert payload["stats"] == [
@@ -106,7 +115,7 @@ def test_import_statistics_payload_uses_meter_specific_statistic_id() -> None:
 
     payload = import_statistics_payload(readings, "4052059", "Contrat 4052059")
 
-    assert payload["metadata"]["statistic_id"] == "sensor.ileo_water_index_4052059"
+    assert payload["metadata"]["statistic_id"] == "ileo:water_index_4052059"
     assert payload["metadata"]["name"] == "ILEO eau - Contrat 4052059"
 
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- Utilise des identifiants de statistiques compatibles Recorder pour les imports Home Assistant.
+- Réessaie une synchronisation après 5 minutes en cas d'erreur au lieu d'attendre le prochain cycle de 4 heures.
+
 ## 0.1.4
 
 - Agrandit et recadre les assets ILEO pour l'affichage dans Home Assistant.

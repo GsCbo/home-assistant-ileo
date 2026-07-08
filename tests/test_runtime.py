@@ -14,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "ileo"))
 from app.config import AppConfig
 from app.ileo_client import IleoMeter, IleoMeterReadings, IleoReading
 from app.main import (
+    ERROR_RETRY_SECONDS,
     MAX_INITIAL_JITTER_SECONDS,
+    calculate_error_retry_seconds,
     calculate_initial_jitter_seconds,
     calculate_sync_interval_seconds,
     get_or_create_installation_id,
@@ -24,7 +26,7 @@ from app.main import (
     write_meter_sync_state,
     write_last_sync,
 )
-from app.statistics import WATER_ENTITY_ID, meter_entity_id
+from app.statistics import WATER_ENTITY_ID, meter_entity_id, meter_statistic_id
 
 
 class FakeIleoClient:
@@ -234,7 +236,7 @@ async def test_sync_once_publishes_each_meter_including_empty_contract(tmp_path:
     assert ha_client.states[0][1] == "120180"
     assert ha_client.states[1][1] == "unknown"
     assert len(ha_client.statistics) == 1
-    assert ha_client.statistics[0]["metadata"]["statistic_id"] == meter_entity_id("4052059")
+    assert ha_client.statistics[0]["metadata"]["statistic_id"] == meter_statistic_id("4052059")
     assert result.fetched_readings == 1
     assert result.imported_readings == 1
     assert read_last_sync(state_path)["meters"]["4052059"] == {
@@ -273,3 +275,8 @@ def test_calculate_sync_interval_seconds_adds_stable_jitter_after_first_sync() -
     interval = calculate_sync_interval_seconds(4, "stable-installation")
 
     assert interval == 4 * 3600 + calculate_initial_jitter_seconds("stable-installation")
+
+
+def test_calculate_error_retry_seconds_uses_short_retry_delay() -> None:
+    assert calculate_error_retry_seconds() == ERROR_RETRY_SECONDS
+    assert calculate_error_retry_seconds() == 5 * 60
