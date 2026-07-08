@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Préserve l'environnement Supervisor au démarrage de l'app.
+- Corrige l'erreur `SUPERVISOR_TOKEN is required` au lancement.
+
 ## 0.1.2
 
 - Lance une synchronisation immédiatement au démarrage de l'app.

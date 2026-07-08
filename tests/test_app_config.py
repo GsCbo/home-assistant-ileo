@@ -103,3 +103,9 @@ def test_load_config_reads_options_file(tmp_path: Path) -> None:
 
     assert config.username == "user@example.test"
 
+
+def test_run_script_preserves_supervisor_environment() -> None:
+    script_path = Path(__file__).parents[1] / "ileo" / "run.sh"
+    first_line = script_path.read_text(encoding="utf-8").splitlines()[0]
+
+    assert first_line == "#!/usr/bin/with-contenv bash"
