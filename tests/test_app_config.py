@@ -30,6 +30,38 @@ def test_parse_config_returns_validated_app_config() -> None:
     assert config.start_date == date(2025, 3, 1)
     assert config.sync_interval_hours == 4
     assert config.mode == "sync"
+    assert config.meter_names == {}
+
+
+def test_parse_config_accepts_meter_names_mapping() -> None:
+    config = parse_config(
+        {
+            "username": "user@example.test",
+            "password": "secret",
+            "start_date": "2025-03-01",
+            "sync_interval_hours": 4,
+            "meter_names": "4052059 = Maison\n4147436=Jardin",
+        }
+    )
+
+    assert config.meter_names == {
+        "4052059": "Maison",
+        "4147436": "Jardin",
+    }
+
+
+@pytest.mark.parametrize("meter_names", ["4052059 Maison", "=Maison", "4052059="])
+def test_parse_config_rejects_invalid_meter_names(meter_names: str) -> None:
+    with pytest.raises(ConfigError):
+        parse_config(
+            {
+                "username": "user@example.test",
+                "password": "secret",
+                "start_date": "2025-03-01",
+                "sync_interval_hours": 4,
+                "meter_names": meter_names,
+            }
+        )
 
 
 @pytest.mark.parametrize("key", ["username", "password", "start_date"])

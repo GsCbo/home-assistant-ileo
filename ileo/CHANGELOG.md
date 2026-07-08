@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.7
+
+- Ajoute l'option `meter_names` pour personnaliser les noms affichés des compteurs depuis la configuration de l'app.
+- Documente la limite Home Assistant des entités publiées par l'API d'états, qui ne disposent pas d'un `unique_id` modifiable dans l'interface.
+
 ## 0.1.6
 
 - Supprime l'appel au service `recorder.import_statistics`, absent des versions récentes de Home Assistant.

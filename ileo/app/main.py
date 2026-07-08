@@ -64,6 +64,7 @@ async def sync_once(
     for item in meter_readings:
         meter = item.meter
         readings = item.readings
+        meter_label = _meter_label(config, meter)
         fetched_readings += len(readings)
 
         entity_id = meter_entity_id(meter.meter_id)
@@ -71,10 +72,10 @@ async def sync_once(
             state, attributes = latest_state(
                 readings,
                 meter_id=meter.meter_id,
-                meter_label=meter.name,
+                meter_label=meter_label,
             )
         else:
-            state, attributes = empty_meter_state(meter.meter_id, meter.name)
+            state, attributes = empty_meter_state(meter.meter_id, meter_label)
         await ha_client.async_set_state(entity_id, state, attributes)
 
         meter_sync = read_meter_sync_state(state_path, meter.meter_id)
@@ -101,6 +102,12 @@ async def sync_once(
     )
     LOGGER.info("ILEO sync finished: %s", asdict(result))
     return result
+
+
+def _meter_label(config: AppConfig, meter: IleoMeter) -> str | None:
+    if config.meter_names and meter.meter_id in config.meter_names:
+        return config.meter_names[meter.meter_id]
+    return meter.name
 
 
 def read_last_sync(path: Path = STATE_PATH) -> dict[str, Any]:

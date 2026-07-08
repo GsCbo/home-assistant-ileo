@@ -1,5 +1,5 @@
 name: ILEO
-version: 0.1.6
+version: 0.1.7
 slug: ileo
 description: Sync ILEO water readings with Home Assistant Energy statistics
 url: https://github.com/GsCbo/home-assistant-ileo
@@ -19,9 +19,11 @@ options:
   start_date: "2025-03-01"
   sync_interval_hours: 4
   mode: sync
+  meter_names: ""
 schema:
   username: str
   password: password
   start_date: str
   sync_interval_hours: int(1,168)
   mode: list(sync|reset)
+  meter_names: str?

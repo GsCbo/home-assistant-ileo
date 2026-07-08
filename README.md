@@ -42,6 +42,9 @@ password: votre-mot-de-passe
 start_date: "2025-03-01"
 sync_interval_hours: 4
 mode: sync
+meter_names: |
+  4052059=Compteur maison
+  4147436=Compteur jardin
 ```
 
 ### Options
@@ -53,20 +56,19 @@ mode: sync
 | `start_date` | Première date à importer, au format `YYYY-MM-DD`. |
 | `sync_interval_hours` | Fréquence de synchronisation, en heures. La valeur par défaut est `4`. |
 | `mode` | `sync` pour synchroniser. `reset` existe pour préparer une remise à zéro, mais ne supprime rien pour l'instant. |
+| `meter_names` | Optionnel. Une ligne `id_compteur=nom affiché` pour personnaliser les noms publiés dans Home Assistant. |
 
 ## Fonctionnement
 
 Au démarrage, l'app :
 
 1. lit sa configuration ;
-2. attend un décalage stable entre 0 et 30 minutes pour éviter que toutes les installations appellent ILEO en même temps ;
-3. se connecte à votre espace ILEO ;
-4. télécharge l'export CSV de consommation ;
-5. importe les nouvelles données dans Home Assistant ;
-6. met à jour l'entité `sensor.ileo_water_index` ;
-7. recommence toutes les `sync_interval_hours` heures.
+2. se connecte à votre espace ILEO ;
+3. télécharge l'export CSV de consommation ;
+4. met à jour l'entité `sensor.ileo_water_index` ;
+5. recommence toutes les `sync_interval_hours` heures, avec un décalage stable entre 0 et 30 minutes pour éviter que toutes les installations appellent ILEO en même temps.
 
-Le décalage de démarrage est stable par installation. Si votre instance attend 12 minutes aujourd'hui, elle gardera le même ordre de grandeur aux prochains redémarrages.
+Le décalage entre deux synchronisations est stable par installation. Si votre instance ajoute 12 minutes aujourd'hui, elle gardera le même ordre de grandeur aux prochains cycles.
 
 ## Plusieurs contrats ou compteurs
 
@@ -87,7 +89,7 @@ sensor.ileo_water_index_4052059
 sensor.ileo_water_index_4147436
 ```
 
-Vous pouvez renommer les entités dans Home Assistant. L'app conserve l'identifiant technique du contrat pour éviter de recréer des statistiques au prochain démarrage.
+Ces entités n'ont pas de `unique_id`, car elles sont publiées par l'app via l'API d'états Home Assistant. Home Assistant ne permet donc pas de les renommer depuis l'interface. Utilisez `meter_names` dans la configuration de l'app pour choisir les noms affichés.
 
 ## Tableau de bord Énergie
 
@@ -110,7 +112,7 @@ L'entité expose les métadonnées attendues par Home Assistant :
 
 - Les données ILEO ne sont pas forcément disponibles en temps réel.
 - L'app dépend du portail ILEO. Si la page de connexion ou le format CSV change, une correction de l'app pourra être nécessaire.
-- L'app évite d'importer deux fois les mêmes jours grâce au fichier persistant `/data/last_sync.json`.
+- L'app mémorise le dernier relevé vu par compteur dans `/data/last_sync.json`.
 - Les appels ILEO sont volontairement espacés pour rester raisonnables côté service.
 
 ## Dépannage

@@ -12,6 +12,9 @@ password: votre-mot-de-passe
 start_date: "2025-03-01"
 sync_interval_hours: 4
 mode: sync
+meter_names: |
+  4052059=Compteur maison
+  4147436=Compteur jardin
 ```
 
 ## Options
@@ -21,18 +24,19 @@ mode: sync
 - `start_date` : première date à importer, au format `YYYY-MM-DD`.
 - `sync_interval_hours` : fréquence de synchronisation en heures, `4` par défaut.
 - `mode` : `sync` pour importer les relevés. `reset` ne supprime rien pour l'instant.
+- `meter_names` : optionnel, une ligne `id_compteur=nom affiché` pour personnaliser les noms des compteurs.
 
 ## Fonctionnement
 
-Au démarrage, l'app attend un décalage stable entre 0 et 30 minutes afin d'éviter que toutes les installations appellent ILEO au même moment.
-
-Ensuite, elle synchronise les données selon la fréquence configurée et les publie comme statistique d'eau compatible avec le tableau de bord Énergie.
+Au démarrage, l'app synchronise immédiatement les données disponibles. Ensuite, elle recommence selon la fréquence configurée avec un décalage stable entre 0 et 30 minutes afin d'éviter que toutes les installations appellent ILEO au même moment.
 
 ## Plusieurs contrats
 
 Si plusieurs contrats ILEO sont attachés au compte, l'app les détecte automatiquement et crée une entité par contrat.
 
-Un contrat sans relevé apparaît avec l'état `unknown` jusqu'à la première consommation disponible. Vous pouvez renommer les entités dans Home Assistant sans casser la synchronisation.
+Un contrat sans relevé apparaît avec l'état `unknown` jusqu'à la première consommation disponible.
+
+Les entités créées par l'app via l'API d'états Home Assistant n'ont pas de `unique_id`, donc Home Assistant ne permet pas de les renommer depuis l'interface. Utilisez `meter_names` dans la configuration de l'app pour choisir les noms affichés.
 
 ## Notes
 

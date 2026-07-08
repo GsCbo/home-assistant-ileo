@@ -234,6 +234,38 @@ async def test_sync_once_publishes_each_meter_including_empty_contract(tmp_path:
     }
 
 
+@pytest.mark.asyncio
+async def test_sync_once_uses_configured_meter_name(tmp_path: Path) -> None:
+    state_path = tmp_path / "last_sync.json"
+    ileo_client = FakeIleoClient(
+        meter_readings=[
+            IleoMeterReadings(
+                IleoMeter("4052059", "Contrat 4052059"),
+                [IleoReading(date(2026, 6, 28), 180.0, 120180, meter_id="4052059")],
+            ),
+        ]
+    )
+    ha_client = FakeHomeAssistantClient()
+
+    result = await sync_once(
+        AppConfig(
+            username="user@example.test",
+            password="secret",
+            start_date=date(2025, 3, 1),
+            sync_interval_hours=4,
+            mode="sync",
+            meter_names={"4052059": "Compteur maison"},
+        ),
+        ileo_client,
+        ha_client,
+        state_path=state_path,
+        today=date(2026, 7, 8),
+    )
+
+    assert result.imported_readings == 1
+    assert ha_client.states[0][2]["friendly_name"] == "ILEO eau - Compteur maison"
+
+
 def test_get_or_create_installation_id_reuses_persisted_value(tmp_path: Path) -> None:
     state_path = tmp_path / "last_sync.json"
     write_last_sync(state_path, {"installation_id": "stable-installation"})

@@ -25,6 +25,7 @@ class AppConfig:
     start_date: date
     sync_interval_hours: int
     mode: str = "sync"
+    meter_names: dict[str, str] | None = None
 
 
 def load_config(path: Path = DEFAULT_OPTIONS_PATH) -> AppConfig:
@@ -49,6 +50,7 @@ def parse_config(data: dict[str, Any]) -> AppConfig:
     start_date = _parse_start_date(_required_str(data, "start_date"))
     sync_interval_hours = _parse_sync_interval(data.get("sync_interval_hours"))
     mode = str(data.get("mode", "sync")).strip().lower()
+    meter_names = _parse_meter_names(data.get("meter_names", ""))
 
     if mode not in VALID_MODES:
         raise ConfigError(f"mode must be one of: {', '.join(sorted(VALID_MODES))}")
@@ -59,6 +61,7 @@ def parse_config(data: dict[str, Any]) -> AppConfig:
         start_date=start_date,
         sync_interval_hours=sync_interval_hours,
         mode=mode,
+        meter_names=meter_names,
     )
 
 
@@ -83,3 +86,27 @@ def _parse_sync_interval(value: Any) -> int:
         raise ConfigError("sync_interval_hours must be between 1 and 168")
     return value
 
+
+def _parse_meter_names(value: Any) -> dict[str, str]:
+    if value in (None, ""):
+        return {}
+    if not isinstance(value, str):
+        raise ConfigError("meter_names must be a string")
+
+    names: dict[str, str] = {}
+    for line_number, raw_line in enumerate(value.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            raise ConfigError(
+                f"meter_names line {line_number} must use meter_id=name format"
+            )
+        meter_id, name = [part.strip() for part in line.split("=", 1)]
+        if not meter_id or not name:
+            raise ConfigError(
+                f"meter_names line {line_number} must include meter_id and name"
+            )
+        names[meter_id] = name
+
+    return names
