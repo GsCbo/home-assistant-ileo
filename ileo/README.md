@@ -28,9 +28,14 @@ Au démarrage, l'app attend un décalage stable entre 0 et 30 minutes afin d'év
 
 Ensuite, elle synchronise les données selon la fréquence configurée et les publie comme statistique d'eau compatible avec le tableau de bord Énergie.
 
+## Plusieurs contrats
+
+Si plusieurs contrats ILEO sont attachés au compte, l'app les détecte automatiquement et crée une entité par contrat.
+
+Un contrat sans relevé apparaît avec l'état `unknown` jusqu'à la première consommation disponible. Vous pouvez renommer les entités dans Home Assistant sans casser la synchronisation.
+
 ## Notes
 
 - Les données dépendent de ce que le portail ILEO expose dans son export.
 - L'app n'est pas une intégration officielle ILEO.
 - En cas de problème, consultez l'onglet `Journal` de l'app.
-

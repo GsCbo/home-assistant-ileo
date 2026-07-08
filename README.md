@@ -68,6 +68,27 @@ Au démarrage, l'app :
 
 Le décalage de démarrage est stable par installation. Si votre instance attend 12 minutes aujourd'hui, elle gardera le même ordre de grandeur aux prochains redémarrages.
 
+## Plusieurs contrats ou compteurs
+
+Si votre compte ILEO contient plusieurs contrats, l'app les détecte dans le menu de l'espace client et synchronise chaque contrat séparément.
+
+Le comportement par défaut est volontairement automatique :
+
+- tous les contrats détectés sont importés ;
+- chaque contrat obtient sa propre entité Home Assistant ;
+- le contrat courant garde l'ancien comportement si c'est le seul contrat visible ;
+- un contrat sans consommation apparaît quand même avec l'état `unknown`, puis recevra ses statistiques dès que ILEO exposera un premier relevé.
+
+Exemples d'entités :
+
+```text
+sensor.ileo_water_index
+sensor.ileo_water_index_4052059
+sensor.ileo_water_index_4147436
+```
+
+Vous pouvez renommer les entités dans Home Assistant. L'app conserve l'identifiant technique du contrat pour éviter de recréer des statistiques au prochain démarrage.
+
 ## Tableau de bord Énergie
 
 Après une première synchronisation réussie, Home Assistant dispose d'une statistique d'eau basée sur `sensor.ileo_water_index`.
@@ -118,4 +139,3 @@ pytest tests -v
 ## Statut
 
 Projet personnel, fait pour la maison et les gens du coin qui veulent voir leur eau dans Home Assistant sans attendre qu'une intégration officielle tombe du ciel.
-
