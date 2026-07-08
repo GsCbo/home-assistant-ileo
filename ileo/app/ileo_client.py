@@ -7,12 +7,14 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from html.parser import HTMLParser
 from io import StringIO
+import re
 from urllib.parse import urlencode
 
 BASE_URL = "https://www.mel-ileo.fr"
 LOGIN_URL = f"{BASE_URL}/connexion.aspx"
 CONSUMPTION_URL = f"{BASE_URL}/espaceperso/mes-consommations.aspx"
 
+DEFAULT_METER_ID = "default"
 REQUIRED_COLUMNS = {"date", "consommation (litres)", "index"}
 LOGIN_FORM_MARKERS = ("je me connecte",)
 
@@ -34,12 +36,30 @@ class IleoCsvError(IleoError):
 
 
 @dataclass(frozen=True, slots=True)
+class IleoMeter:
+    """ILEO water meter or contract exposed by an account."""
+
+    meter_id: str
+    name: str
+    switch_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class IleoReading:
     """Daily ILEO water consumption reading."""
 
     date: date
     litres: float
     index_litres: int
+    meter_id: str = DEFAULT_METER_ID
+
+
+@dataclass(frozen=True, slots=True)
+class IleoMeterReadings:
+    """Readings attached to a single ILEO meter."""
+
+    meter: IleoMeter
+    readings: list[IleoReading]
 
 
 class IleoApiClient:
@@ -52,6 +72,55 @@ class IleoApiClient:
 
     async def async_validate_credentials(self) -> bool:
         """Validate configured credentials against the ILEO login page."""
+        await self._async_login()
+        return True
+
+    async def async_fetch_readings(
+        self, start_date: date, end_date: date
+    ) -> list[IleoReading]:
+        """Fetch and parse all consumption readings for the requested date range."""
+        meter_readings = await self.async_fetch_meter_readings(start_date, end_date)
+        readings: list[IleoReading] = []
+        for item in meter_readings:
+            readings.extend(item.readings)
+        return sorted(readings, key=lambda reading: (reading.meter_id, reading.date))
+
+    async def async_fetch_meter_readings(
+        self, start_date: date, end_date: date
+    ) -> list[IleoMeterReadings]:
+        """Fetch readings grouped by detected ILEO meter or contract."""
+        await self._async_login()
+
+        async with self._session.get(CONSUMPTION_URL) as response:
+            if response.status >= 400:
+                raise IleoConnectionError("Unable to load ILEO consumption page")
+            consumption_html = await response.text()
+
+        meters = parse_meters_from_html(consumption_html)
+        if not meters:
+            meters = [IleoMeter(DEFAULT_METER_ID, "ILEO")]
+
+        has_explicit_meter_ids = len(meters) > 1
+        results: list[IleoMeterReadings] = []
+        for meter in meters:
+            effective_meter = meter
+            if not has_explicit_meter_ids:
+                effective_meter = IleoMeter(DEFAULT_METER_ID, meter.name, meter.switch_id)
+
+            if meter.switch_id is not None:
+                switch_url = f"{CONSUMPTION_URL}?{urlencode({'switchAbt': meter.switch_id})}"
+                async with self._session.get(switch_url) as response:
+                    if response.status >= 400:
+                        raise IleoConnectionError(f"Unable to switch ILEO contract {meter.meter_id}")
+                    await response.text()
+
+            csv_text = await self._async_download_csv(start_date, end_date)
+            readings = parse_readings_csv(csv_text, meter_id=effective_meter.meter_id)
+            results.append(IleoMeterReadings(effective_meter, readings))
+
+        return results
+
+    async def _async_login(self) -> None:
         async with self._session.get(LOGIN_URL) as response:
             if response.status >= 400:
                 raise IleoConnectionError("Unable to load ILEO login page")
@@ -70,14 +139,7 @@ class IleoApiClient:
         if "connexion.aspx" in final_url or "je me connecte" in body.lower():
             raise IleoAuthError("Invalid ILEO credentials")
 
-        return True
-
-    async def async_fetch_readings(
-        self, start_date: date, end_date: date
-    ) -> list[IleoReading]:
-        """Fetch and parse consumption readings for the requested date range."""
-        await self.async_validate_credentials()
-
+    async def _async_download_csv(self, start_date: date, end_date: date) -> str:
         query = urlencode(
             {
                 "ex": "1",
@@ -89,9 +151,7 @@ class IleoApiClient:
         async with self._session.get(export_url) as response:
             if response.status >= 400:
                 raise IleoConnectionError("Unable to download ILEO consumption export")
-            csv_text = await response.text()
-
-        return parse_readings_csv(csv_text)
+            return await response.text()
 
     def _build_login_payload(self, login_html: str) -> dict[str, str]:
         """Build the login form payload, preserving ASP.NET hidden fields."""
@@ -101,7 +161,9 @@ class IleoApiClient:
         return payload
 
 
-def parse_readings_csv(csv_text: str) -> list[IleoReading]:
+def parse_readings_csv(
+    csv_text: str, *, meter_id: str = DEFAULT_METER_ID
+) -> list[IleoReading]:
     """Parse an ILEO CSV export into chronological positive readings."""
     reader = csv.DictReader(StringIO(csv_text), delimiter=";")
     columns = {_normalize_header(fieldname): fieldname for fieldname in reader.fieldnames or []}
@@ -131,10 +193,35 @@ def parse_readings_csv(csv_text: str) -> list[IleoReading]:
                 date=reading_date,
                 litres=litres,
                 index_litres=index_litres,
+                meter_id=meter_id,
             )
         )
 
     return sorted(readings, key=lambda reading: reading.date)
+
+
+def parse_meters_from_html(html: str) -> list[IleoMeter]:
+    """Parse ILEO contract links from an authenticated page."""
+    parser = _LinkParser()
+    parser.feed(html)
+
+    meters: list[IleoMeter] = []
+    seen: set[str] = set()
+    for href, text in parser.links:
+        match = re.search(r"contrat\s*n[°º�]?\s*(\d+)", text, re.IGNORECASE)
+        if match is None:
+            continue
+
+        meter_id = match.group(1)
+        if meter_id in seen:
+            continue
+
+        switch_match = re.search(r"switchAbt=(\d+)", href or "")
+        switch_id = switch_match.group(1) if switch_match else None
+        meters.append(IleoMeter(meter_id=meter_id, name=f"Contrat {meter_id}", switch_id=switch_id))
+        seen.add(meter_id)
+
+    return meters
 
 
 def _parse_date(value: str, row_number: int) -> date:
@@ -218,3 +305,31 @@ class _InputParser(HTMLParser):
 
         if name is not None and (attributes.get("type") or "").lower() == "hidden":
             self.hidden_inputs[name] = attributes.get("value") or ""
+
+
+class _LinkParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.links: list[tuple[str, str]] = []
+        self._href: str | None = None
+        self._text: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "a":
+            return
+        attributes = {key.lower(): value for key, value in attrs}
+        self._href = attributes.get("href") or ""
+        self._text = []
+
+    def handle_data(self, data: str) -> None:
+        if self._href is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() != "a" or self._href is None:
+            return
+        text = " ".join(part.strip() for part in self._text if part.strip())
+        text = re.sub(r"\s+", " ", text).strip()
+        self.links.append((self._href, text))
+        self._href = None
+        self._text = []

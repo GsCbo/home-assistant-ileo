@@ -17,6 +17,7 @@ from app.ileo_client import (
     IleoAuthError,
     IleoConnectionError,
     IleoCsvError,
+    parse_meters_from_html,
     parse_readings_csv,
 )
 
@@ -186,6 +187,7 @@ async def test_async_fetch_readings_validates_session_and_downloads_csv_export()
         [
             FakeResponse(url=ileo_client.LOGIN_URL, body=LOGIN_HTML),
             FakeResponse(url=ileo_client.CONSUMPTION_URL, body="<html>mes consommations</html>"),
+            FakeResponse(url=ileo_client.CONSUMPTION_URL, body="<html>no contract menu</html>"),
             FakeResponse(url=ileo_client.CONSUMPTION_URL, body=csv_text),
         ]
     )
@@ -194,7 +196,7 @@ async def test_async_fetch_readings_validates_session_and_downloads_csv_export()
     readings = await client.async_fetch_readings(date(2025, 3, 1), date(2025, 3, 31))
 
     assert readings == [ileo_client.IleoReading(date(2025, 3, 2), 180.0, 120180)]
-    method, export_url, kwargs = session.calls[2]
+    method, export_url, kwargs = session.calls[3]
     assert method == "GET"
     assert kwargs == {}
     parsed_url = urlparse(export_url)
@@ -206,6 +208,51 @@ async def test_async_fetch_readings_validates_session_and_downloads_csv_export()
         "dateDebut": ["01/03/2025"],
         "dateFin": ["31/03/2025"],
     }
+
+
+@pytest.mark.asyncio
+async def test_async_fetch_meter_readings_switches_each_detected_contract() -> None:
+    first_csv = "date;consommation (litres);index\n2026-06-28;180;120180\n"
+    second_csv = "date;consommation (litres);index\n"
+    consumption_html = """
+    <a href="javascript:">Contrat n°4052059</a>
+    <a href="?switchAbt=4147436">Contrat n°4147436</a>
+    """
+    session = FakeSession(
+        [
+            FakeResponse(url=ileo_client.LOGIN_URL, body=LOGIN_HTML),
+            FakeResponse(url=ileo_client.CONSUMPTION_URL, body="<html>mes consommations</html>"),
+            FakeResponse(url=ileo_client.CONSUMPTION_URL, body=consumption_html),
+            FakeResponse(url=ileo_client.CONSUMPTION_URL, body=first_csv),
+            FakeResponse(url=ileo_client.CONSUMPTION_URL, body="<html>switched</html>"),
+            FakeResponse(url=ileo_client.CONSUMPTION_URL, body=second_csv),
+        ]
+    )
+    client = IleoApiClient(session, "user@example.test", "secret")
+
+    result = await client.async_fetch_meter_readings(date(2026, 1, 1), date(2026, 7, 8))
+
+    assert [item.meter.meter_id for item in result] == ["4052059", "4147436"]
+    assert result[0].readings == [
+        ileo_client.IleoReading(date(2026, 6, 28), 180.0, 120180, meter_id="4052059")
+    ]
+    assert result[1].readings == []
+    assert any("switchAbt=4147436" in call[1] for call in session.calls)
+
+
+def test_parse_meters_from_html_extracts_contract_menu_links() -> None:
+    html = """
+    <a href="javascript:">Contrat n°4052059</a>
+    <a href="?switchAbt=4147436">Contrat n°4147436</a>
+    <a href="attacher-contrat.aspx">Attacher un nouveau contrat</a>
+    """
+
+    meters = parse_meters_from_html(html)
+
+    assert meters == [
+        ileo_client.IleoMeter("4052059", "Contrat 4052059", None),
+        ileo_client.IleoMeter("4147436", "Contrat 4147436", "4147436"),
+    ]
 
 
 def test_parse_readings_csv_filters_zero_and_missing_values() -> None:
@@ -243,6 +290,22 @@ def test_parse_readings_csv_accepts_iso_dates_from_current_ileo_export() -> None
     readings = parse_readings_csv(csv_text)
 
     assert readings[0].date == date(2026, 6, 28)
+
+
+def test_parse_readings_csv_assigns_default_meter_id() -> None:
+    csv_text = "date;consommation (litres);index\n02/03/2025;180;120180\n"
+
+    readings = parse_readings_csv(csv_text)
+
+    assert readings[0].meter_id == "default"
+
+
+def test_parse_readings_csv_assigns_requested_meter_id() -> None:
+    csv_text = "date;consommation (litres);index\n02/03/2025;180;120180\n"
+
+    readings = parse_readings_csv(csv_text, meter_id="4052059")
+
+    assert readings[0].meter_id == "4052059"
 
 
 def test_parse_readings_csv_raises_for_missing_required_columns() -> None:
