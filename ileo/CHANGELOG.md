@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- Lance une synchronisation immédiatement au démarrage de l'app.
+- Applique le décalage stable uniquement entre les synchronisations suivantes.
+- Évite l'attente initiale de plusieurs minutes après installation ou mise à jour.
+
 ## 0.1.1
 
 - Ajoute la détection automatique des contrats ILEO attachés au compte.
@@ -15,4 +21,3 @@
 - Connexion au compte ILEO.
 - Import des relevés d'eau dans les statistiques longue durée Home Assistant.
 - Publication d'une entité compatible avec le tableau de bord Énergie.
-

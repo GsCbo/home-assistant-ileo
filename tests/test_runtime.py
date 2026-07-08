@@ -16,6 +16,7 @@ from app.ileo_client import IleoMeter, IleoMeterReadings, IleoReading
 from app.main import (
     MAX_INITIAL_JITTER_SECONDS,
     calculate_initial_jitter_seconds,
+    calculate_sync_interval_seconds,
     get_or_create_installation_id,
     read_meter_sync_state,
     read_last_sync,
@@ -266,3 +267,9 @@ def test_calculate_initial_jitter_seconds_is_stable_and_bounded() -> None:
 
     assert jitter == calculate_initial_jitter_seconds("stable-installation")
     assert 0 <= jitter <= MAX_INITIAL_JITTER_SECONDS
+
+
+def test_calculate_sync_interval_seconds_adds_stable_jitter_after_first_sync() -> None:
+    interval = calculate_sync_interval_seconds(4, "stable-installation")
+
+    assert interval == 4 * 3600 + calculate_initial_jitter_seconds("stable-installation")

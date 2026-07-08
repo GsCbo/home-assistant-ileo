@@ -184,15 +184,21 @@ def calculate_initial_jitter_seconds(installation_id: str) -> int:
     return value % (MAX_INITIAL_JITTER_SECONDS + 1)
 
 
+def calculate_sync_interval_seconds(sync_interval_hours: int, installation_id: str) -> int:
+    """Calculate the delay between syncs after the immediate startup sync."""
+    return sync_interval_hours * 3600 + calculate_initial_jitter_seconds(installation_id)
+
+
 async def run_loop(config: AppConfig, state_path: Path = STATE_PATH) -> None:
     """Run synchronization forever using Supervisor options."""
     import aiohttp
 
     installation_id = get_or_create_installation_id(state_path)
-    initial_jitter = calculate_initial_jitter_seconds(installation_id)
-    if initial_jitter:
-        LOGGER.info("Waiting %s seconds before first ILEO sync", initial_jitter)
-        await asyncio.sleep(initial_jitter)
+    sync_interval = calculate_sync_interval_seconds(
+        config.sync_interval_hours,
+        installation_id,
+    )
+    LOGGER.info("Using %s seconds between ILEO syncs", sync_interval)
 
     async with aiohttp.ClientSession() as session:
         ileo_client = IleoApiClient(session, config.username, config.password)
@@ -202,7 +208,7 @@ async def run_loop(config: AppConfig, state_path: Path = STATE_PATH) -> None:
                 await sync_once(config, ileo_client, ha_client, state_path=state_path)
             except Exception:
                 LOGGER.exception("ILEO synchronization failed")
-            await asyncio.sleep(config.sync_interval_hours * 3600)
+            await asyncio.sleep(sync_interval)
 
 
 def configure_logging() -> None:
