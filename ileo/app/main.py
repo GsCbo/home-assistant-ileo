@@ -14,12 +14,13 @@ from typing import Any
 
 from .config import AppConfig, load_config
 from .ha_api import HomeAssistantClient
-from .ileo_client import IleoApiClient, IleoReading
+from .ileo_client import DEFAULT_METER_ID, IleoApiClient, IleoMeter, IleoMeterReadings, IleoReading
 from .statistics import (
-    WATER_ENTITY_ID,
+    empty_meter_state,
     filter_after_last_sync,
     import_statistics_payload,
     latest_state,
+    meter_entity_id,
 )
 
 STATE_PATH = Path("/data/last_sync.json")
@@ -52,33 +53,58 @@ async def sync_once(
         return SyncResult(0, 0, None)
 
     end_date = today or date.today()
-    readings = await ileo_client.async_fetch_readings(config.start_date, end_date)
-    if not readings:
-        LOGGER.info("No ILEO readings were returned")
+    meter_readings = await _fetch_meter_readings(ileo_client, config.start_date, end_date)
+    if not meter_readings:
+        LOGGER.info("No ILEO meters were returned")
         return SyncResult(0, 0, None)
 
-    state, attributes = latest_state(readings)
-    await ha_client.async_set_state(WATER_ENTITY_ID, state, attributes)
+    fetched_readings = 0
+    imported_readings = 0
+    latest_reading_date: str | None = None
 
-    last_sync = read_last_sync(state_path)
-    new_readings = filter_after_last_sync(readings, last_sync.get("last_imported_date"))
-    if new_readings:
-        await ha_client.async_import_statistics(import_statistics_payload(new_readings))
+    for item in meter_readings:
+        meter = item.meter
+        readings = item.readings
+        fetched_readings += len(readings)
 
-    latest = max(readings, key=lambda reading: reading.date)
-    write_last_sync(
-        state_path,
-        {
-            **last_sync,
-            "last_imported_date": latest.date.isoformat(),
-            "latest_index_litres": latest.index_litres,
-        },
-    )
+        entity_id = meter_entity_id(meter.meter_id)
+        if readings:
+            state, attributes = latest_state(
+                readings,
+                meter_id=meter.meter_id,
+                meter_label=meter.name,
+            )
+        else:
+            state, attributes = empty_meter_state(meter.meter_id, meter.name)
+        await ha_client.async_set_state(entity_id, state, attributes)
+
+        meter_sync = read_meter_sync_state(state_path, meter.meter_id)
+        new_readings = filter_after_last_sync(
+            readings, meter_sync.get("last_imported_date")
+        )
+        if new_readings:
+            await ha_client.async_import_statistics(
+                import_statistics_payload(new_readings, meter.meter_id, meter.name)
+            )
+            imported_readings += len(new_readings)
+
+        if readings:
+            latest = max(readings, key=lambda reading: reading.date)
+            write_meter_sync_state(
+                state_path,
+                meter.meter_id,
+                {
+                    "last_imported_date": latest.date.isoformat(),
+                    "latest_index_litres": latest.index_litres,
+                },
+            )
+            if latest_reading_date is None or latest.date.isoformat() > latest_reading_date:
+                latest_reading_date = latest.date.isoformat()
 
     result = SyncResult(
-        fetched_readings=len(readings),
-        imported_readings=len(new_readings),
-        latest_reading_date=latest.date.isoformat(),
+        fetched_readings=fetched_readings,
+        imported_readings=imported_readings,
+        latest_reading_date=latest_reading_date,
     )
     LOGGER.info("ILEO sync finished: %s", asdict(result))
     return result
@@ -98,6 +124,45 @@ def write_last_sync(path: Path, data: dict[str, Any]) -> None:
     """Persist sync state under /data."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+
+
+async def _fetch_meter_readings(
+    ileo_client: IleoApiClient,
+    start_date: date,
+    end_date: date,
+) -> list[IleoMeterReadings]:
+    if hasattr(ileo_client, "async_fetch_meter_readings"):
+        return await ileo_client.async_fetch_meter_readings(start_date, end_date)
+
+    readings = await ileo_client.async_fetch_readings(start_date, end_date)
+    return [IleoMeterReadings(IleoMeter(DEFAULT_METER_ID, "ILEO"), readings)]
+
+
+def read_meter_sync_state(path: Path, meter_id: str) -> dict[str, Any]:
+    """Read the persisted sync marker for a meter, including legacy default state."""
+    state = read_last_sync(path)
+    meters = state.get("meters")
+    if isinstance(meters, dict) and isinstance(meters.get(meter_id), dict):
+        return meters[meter_id]
+
+    if meter_id == DEFAULT_METER_ID:
+        return {
+            key: state[key]
+            for key in ("last_imported_date", "latest_index_litres")
+            if key in state
+        }
+
+    return {}
+
+
+def write_meter_sync_state(
+    path: Path, meter_id: str, meter_state: dict[str, Any]
+) -> None:
+    """Persist the sync marker for one meter without losing global state."""
+    state = read_last_sync(path)
+    current_meters = state.get("meters")
+    meters = current_meters if isinstance(current_meters, dict) else {}
+    write_last_sync(path, {**state, "meters": {**meters, meter_id: meter_state}})
 
 
 def get_or_create_installation_id(path: Path = STATE_PATH) -> str:
