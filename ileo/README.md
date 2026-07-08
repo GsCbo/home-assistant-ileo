@@ -34,7 +34,7 @@ Au démarrage, l'app synchronise immédiatement les données disponibles. Ensuit
 
 Si plusieurs contrats ILEO sont attachés au compte, l'app les détecte automatiquement et crée une entité par contrat.
 
-Un contrat sans relevé apparaît avec l'état `unknown` jusqu'à la première consommation disponible.
+Un contrat sans relevé apparaît avec l'état numérique `0`, marqué par l'attribut `assumed_zero`, jusqu'à la première consommation disponible.
 
 Les entités créées par l'app via l'API d'états Home Assistant n'ont pas de `unique_id`, donc Home Assistant ne permet pas de les renommer depuis l'interface. Utilisez `meter_names` dans la configuration de l'app pour choisir les noms affichés.
 

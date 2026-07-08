@@ -53,12 +53,13 @@ def empty_meter_state(
     meter_id: str,
     meter_label: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    """Build a visible Home Assistant state for a meter without readings yet."""
-    return "unknown", {
+    """Build a visible numeric Home Assistant state for a meter without readings yet."""
+    return "0", {
         **_base_attributes(meter_id, meter_label),
         "device_class": "water",
         "state_class": "total_increasing",
         "unit_of_measurement": WATER_UNIT,
+        "assumed_zero": True,
         "last_reading_date": None,
         "last_daily_litres": None,
     }

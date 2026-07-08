@@ -79,7 +79,7 @@ Le comportement par défaut est volontairement automatique :
 - tous les contrats détectés sont importés ;
 - chaque contrat obtient sa propre entité Home Assistant ;
 - le contrat courant garde l'ancien comportement si c'est le seul contrat visible ;
-- un contrat sans consommation apparaît quand même avec l'état `unknown`, puis recevra ses statistiques dès que ILEO exposera un premier relevé.
+- un contrat sans consommation apparaît quand même avec l'état numérique `0`, marqué par l'attribut `assumed_zero`, puis basculera sur le relevé ILEO réel dès qu'il sera disponible.
 
 Exemples d'entités :
 

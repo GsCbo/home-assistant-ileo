@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8
+
+- Publie les compteurs détectés sans relevé avec l'état numérique `0` au lieu de `unknown`.
+- Ajoute l'attribut `assumed_zero` pour signaler que la valeur zéro est supposée tant qu'ILEO ne fournit pas de relevé.
+- Permet de préparer ces compteurs dans le tableau de bord Énergie sans erreur d'entité indisponible.
+
 ## 0.1.7
 
 - Ajoute l'option `meter_names` pour personnaliser les noms affichés des compteurs depuis la configuration de l'app.

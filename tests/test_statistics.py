@@ -57,13 +57,14 @@ def test_latest_state_uses_meter_specific_name() -> None:
     assert attributes["meter_id"] == "4052059"
 
 
-def test_empty_meter_state_exposes_unknown_water_entity() -> None:
+def test_empty_meter_state_exposes_zero_water_entity() -> None:
     state, attributes = empty_meter_state("4147436", "Contrat 4147436")
 
-    assert state == "unknown"
+    assert state == "0"
     assert attributes["friendly_name"] == "ILEO eau - Contrat 4147436"
     assert attributes["device_class"] == "water"
     assert attributes["state_class"] == "total_increasing"
     assert attributes["unit_of_measurement"] == "L"
+    assert attributes["assumed_zero"] is True
     assert attributes["meter_id"] == "4147436"
     assert attributes["last_reading_date"] is None

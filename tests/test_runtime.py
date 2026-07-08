@@ -225,7 +225,8 @@ async def test_sync_once_publishes_each_meter_including_empty_contract(tmp_path:
         meter_entity_id("4147436"),
     ]
     assert ha_client.states[0][1] == "120180"
-    assert ha_client.states[1][1] == "unknown"
+    assert ha_client.states[1][1] == "0"
+    assert ha_client.states[1][2]["assumed_zero"] is True
     assert result.fetched_readings == 1
     assert result.imported_readings == 1
     assert read_last_sync(state_path)["meters"]["4052059"] == {
