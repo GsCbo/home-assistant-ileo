@@ -237,6 +237,14 @@ def test_parse_readings_csv_sorts_readings_by_date() -> None:
     ]
 
 
+def test_parse_readings_csv_accepts_iso_dates_from_current_ileo_export() -> None:
+    csv_text = "date;consommation (litres);index\n2026-06-28;180;120180\n"
+
+    readings = parse_readings_csv(csv_text)
+
+    assert readings[0].date == date(2026, 6, 28)
+
+
 def test_parse_readings_csv_raises_for_missing_required_columns() -> None:
     csv_text = "date;consommation (litres)\n02/03/2025;180\n"
 
@@ -261,4 +269,3 @@ def test_parse_readings_csv_accepts_space_thousands_separators() -> None:
 
     assert readings[0].litres == 1234.5
     assert readings[0].index_litres == 120180
-

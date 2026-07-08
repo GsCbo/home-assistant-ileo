@@ -138,10 +138,13 @@ def parse_readings_csv(csv_text: str) -> list[IleoReading]:
 
 
 def _parse_date(value: str, row_number: int) -> date:
-    try:
-        return datetime.strptime(value, "%d/%m/%Y").date()
-    except ValueError as err:
-        raise IleoCsvError(f"Invalid date on CSV row {row_number}: {value}") from err
+    for date_format in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(value, date_format).date()
+        except ValueError:
+            continue
+
+    raise IleoCsvError(f"Invalid date on CSV row {row_number}: {value}")
 
 
 def _parse_litres(value: str, row_number: int) -> float:
@@ -215,4 +218,3 @@ class _InputParser(HTMLParser):
 
         if name is not None and (attributes.get("type") or "").lower() == "hidden":
             self.hidden_inputs[name] = attributes.get("value") or ""
-
