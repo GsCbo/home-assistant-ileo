@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Agrandit et recadre les assets ILEO pour l'affichage dans Home Assistant.
+- Ajoute un fond clair aux logos pour rester lisible en thème sombre.
+
 ## 0.1.3
 
 - Préserve l'environnement Supervisor au démarrage de l'app.
