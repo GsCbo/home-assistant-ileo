@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.6
+
+- Supprime l'appel au service `recorder.import_statistics`, absent des versions récentes de Home Assistant.
+- Laisse Home Assistant Recorder créer les statistiques longue durée depuis l'entité `water` publiée.
+- Évite les erreurs `400 Bad Request` au démarrage de l'app.
+
 ## 0.1.5
 
 - Utilise des identifiants de statistiques compatibles Recorder pour les imports Home Assistant.

@@ -40,10 +40,6 @@ class HomeAssistantClient:
             {"state": state, "attributes": attributes},
         )
 
-    async def async_import_statistics(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Import historical statistics through recorder.import_statistics."""
-        return await self.async_post("/services/recorder/import_statistics", payload)
-
     async def async_post(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
         """POST JSON to Home Assistant Core and return the JSON response when present."""
         url = f"{self._base_url}{path}"
@@ -61,4 +57,3 @@ class HomeAssistantClient:
             if not body:
                 return {}
             return await response.json()
-

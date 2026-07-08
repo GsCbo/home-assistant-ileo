@@ -17,8 +17,6 @@ from .ha_api import HomeAssistantClient
 from .ileo_client import DEFAULT_METER_ID, IleoApiClient, IleoMeter, IleoMeterReadings, IleoReading
 from .statistics import (
     empty_meter_state,
-    filter_after_last_sync,
-    import_statistics_payload,
     latest_state,
     meter_entity_id,
 )
@@ -80,17 +78,11 @@ async def sync_once(
         await ha_client.async_set_state(entity_id, state, attributes)
 
         meter_sync = read_meter_sync_state(state_path, meter.meter_id)
-        new_readings = filter_after_last_sync(
-            readings, meter_sync.get("last_imported_date")
-        )
-        if new_readings:
-            await ha_client.async_import_statistics(
-                import_statistics_payload(new_readings, meter.meter_id, meter.name)
-            )
-            imported_readings += len(new_readings)
 
         if readings:
             latest = max(readings, key=lambda reading: reading.date)
+            if latest.date.isoformat() > meter_sync.get("last_imported_date", ""):
+                imported_readings += 1
             write_meter_sync_state(
                 state_path,
                 meter.meter_id,
