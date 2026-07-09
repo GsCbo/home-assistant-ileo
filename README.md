@@ -66,8 +66,7 @@ Au démarrage, l'app :
 2. se connecte à votre espace ILEO ;
 3. télécharge l'export CSV de consommation ;
 4. importe les relevés datés dans Recorder pour alimenter l'historique du tableau de bord Énergie ;
-5. met à jour l'entité `sensor.ileo_water_index` ;
-6. recommence toutes les `sync_interval_hours` heures, avec un décalage stable entre 0 et 30 minutes pour éviter que toutes les installations appellent ILEO en même temps.
+5. recommence toutes les `sync_interval_hours` heures, avec un décalage stable entre 0 et 30 minutes pour éviter que toutes les installations appellent ILEO en même temps.
 
 Le décalage entre deux synchronisations est stable par installation. Si votre instance ajoute 12 minutes aujourd'hui, elle gardera le même ordre de grandeur aux prochains cycles.
 
@@ -78,23 +77,22 @@ Si votre compte ILEO contient plusieurs contrats, l'app les détecte dans le men
 Le comportement par défaut est volontairement automatique :
 
 - tous les contrats détectés sont importés ;
-- chaque contrat obtient sa propre entité Home Assistant ;
-- le contrat courant garde l'ancien comportement si c'est le seul contrat visible ;
-- un contrat sans consommation apparaît quand même avec l'état numérique `0`, marqué par l'attribut `assumed_zero`, puis basculera sur le relevé ILEO réel dès qu'il sera disponible.
+- chaque contrat obtient sa propre statistique Recorder ;
+- un contrat sans consommation est ignoré tant qu'ILEO ne fournit aucun relevé réel.
 
-Exemples d'entités :
+Exemples de statistiques :
 
 ```text
-sensor.ileo_water_index
-sensor.ileo_water_index_1234567
-sensor.ileo_water_index_7654321
+ileo:water_index
+ileo:water_index_1234567
+ileo:water_index_7654321
 ```
 
-Ces entités n'ont pas de `unique_id`, car elles sont publiées par l'app via l'API d'états Home Assistant. Home Assistant ne permet donc pas de les renommer depuis l'interface. Utilisez `meter_names` dans la configuration de l'app pour choisir les noms affichés.
+Ces statistiques ne sont pas des entités Home Assistant classiques. Elles servent au tableau de bord Énergie et sont créées directement dans Recorder.
 
 ## Tableau de bord Énergie
 
-Après une première synchronisation réussie, Home Assistant dispose d'une statistique d'eau ILEO séparée de l'entité visible.
+Après une première synchronisation réussie, Home Assistant dispose d'une statistique d'eau ILEO.
 
 Lors du premier import Recorder d'un compteur, l'app reprend les relevés disponibles depuis `start_date`, crée une base de consommation à `0 L`, puis importe les consommations quotidiennes comme statistiques datées. Les synchronisations suivantes ne réimportent que les relevés plus récents que le dernier relevé déjà importé.
 
@@ -105,9 +103,9 @@ Pour l'ajouter au tableau de bord Énergie :
 3. Dans la section eau, ajoutez une consommation.
 4. Sélectionnez la statistique ILEO, par exemple `ileo:water_index` ou `ileo:water_index_1234567`.
 
-Les entités `sensor.ileo_water_index_*` restent visibles dans Home Assistant pour l'état courant du compteur. Les statistiques utilisées par le tableau de bord Énergie sont publiées dans le namespace `ileo:` afin d'éviter que Recorder génère des statistiques concurrentes depuis les sensors.
+L'app ne publie pas d'entités `sensor.ileo_water_index*`. Les statistiques utilisées par le tableau de bord Énergie sont publiées dans le namespace `ileo:` afin d'éviter que Recorder génère des statistiques concurrentes depuis des sensors.
 
-- `device_class` : `water`
+- unit_class : `volume`
 - unité : `L`
 
 ## Bon à savoir

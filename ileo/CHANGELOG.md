@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.16
+
+- Arrete de publier les entites REST `sensor.ileo_water_index*`.
+- Garde uniquement les statistiques Recorder `ileo:water_index*` pour le tableau de bord Energie.
+
 ## 0.1.15
 
 - Réimporte les statistiques lorsqu'un compteur possède uniquement les anciens marqueurs d'import `sensor.*`.
