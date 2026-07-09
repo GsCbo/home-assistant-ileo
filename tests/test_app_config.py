@@ -40,17 +40,17 @@ def test_parse_config_accepts_meter_names_mapping() -> None:
             "password": "secret",
             "start_date": "2025-03-01",
             "sync_interval_hours": 4,
-            "meter_names": "4052059 = Maison\n4147436=Jardin",
+            "meter_names": "1234567 = Maison\n7654321=Jardin",
         }
     )
 
     assert config.meter_names == {
-        "4052059": "Maison",
-        "4147436": "Jardin",
+        "1234567": "Maison",
+        "7654321": "Jardin",
     }
 
 
-@pytest.mark.parametrize("meter_names", ["4052059 Maison", "=Maison", "4052059="])
+@pytest.mark.parametrize("meter_names", ["1234567 Maison", "=Maison", "1234567="])
 def test_parse_config_rejects_invalid_meter_names(meter_names: str) -> None:
     with pytest.raises(ConfigError):
         parse_config(

@@ -215,8 +215,8 @@ async def test_async_fetch_meter_readings_switches_each_detected_contract() -> N
     first_csv = "date;consommation (litres);index\n2026-06-28;180;120180\n"
     second_csv = "date;consommation (litres);index\n"
     consumption_html = """
-    <a href="javascript:">Contrat n°4052059</a>
-    <a href="?switchAbt=4147436">Contrat n°4147436</a>
+    <a href="javascript:">Contrat n°1234567</a>
+    <a href="?switchAbt=7654321">Contrat n°7654321</a>
     """
     session = FakeSession(
         [
@@ -232,26 +232,26 @@ async def test_async_fetch_meter_readings_switches_each_detected_contract() -> N
 
     result = await client.async_fetch_meter_readings(date(2026, 1, 1), date(2026, 7, 8))
 
-    assert [item.meter.meter_id for item in result] == ["4052059", "4147436"]
+    assert [item.meter.meter_id for item in result] == ["1234567", "7654321"]
     assert result[0].readings == [
-        ileo_client.IleoReading(date(2026, 6, 28), 180.0, 120180, meter_id="4052059")
+        ileo_client.IleoReading(date(2026, 6, 28), 180.0, 120180, meter_id="1234567")
     ]
     assert result[1].readings == []
-    assert any("switchAbt=4147436" in call[1] for call in session.calls)
+    assert any("switchAbt=7654321" in call[1] for call in session.calls)
 
 
 def test_parse_meters_from_html_extracts_contract_menu_links() -> None:
     html = """
-    <a href="javascript:">Contrat n°4052059</a>
-    <a href="?switchAbt=4147436">Contrat n°4147436</a>
+    <a href="javascript:">Contrat n°1234567</a>
+    <a href="?switchAbt=7654321">Contrat n°7654321</a>
     <a href="attacher-contrat.aspx">Attacher un nouveau contrat</a>
     """
 
     meters = parse_meters_from_html(html)
 
     assert meters == [
-        ileo_client.IleoMeter("4052059", "Contrat 4052059", None),
-        ileo_client.IleoMeter("4147436", "Contrat 4147436", "4147436"),
+        ileo_client.IleoMeter("1234567", "Contrat 1234567", None),
+        ileo_client.IleoMeter("7654321", "Contrat 7654321", "7654321"),
     ]
 
 
@@ -303,9 +303,9 @@ def test_parse_readings_csv_assigns_default_meter_id() -> None:
 def test_parse_readings_csv_assigns_requested_meter_id() -> None:
     csv_text = "date;consommation (litres);index\n02/03/2025;180;120180\n"
 
-    readings = parse_readings_csv(csv_text, meter_id="4052059")
+    readings = parse_readings_csv(csv_text, meter_id="1234567")
 
-    assert readings[0].meter_id == "4052059"
+    assert readings[0].meter_id == "1234567"
 
 
 def test_parse_readings_csv_raises_for_missing_required_columns() -> None:

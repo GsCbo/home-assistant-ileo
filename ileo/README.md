@@ -13,8 +13,8 @@ start_date: "2025-03-01"
 sync_interval_hours: 4
 mode: sync
 meter_names: |
-  4052059=Compteur maison
-  4147436=Compteur jardin
+  1234567=Compteur principal
+  7654321=Compteur secondaire
 ```
 
 ## Options

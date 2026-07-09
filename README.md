@@ -43,8 +43,8 @@ start_date: "2025-03-01"
 sync_interval_hours: 4
 mode: sync
 meter_names: |
-  4052059=Compteur maison
-  4147436=Compteur jardin
+  1234567=Compteur principal
+  7654321=Compteur secondaire
 ```
 
 ### Options
@@ -85,8 +85,8 @@ Exemples d'entités :
 
 ```text
 sensor.ileo_water_index
-sensor.ileo_water_index_4052059
-sensor.ileo_water_index_4147436
+sensor.ileo_water_index_1234567
+sensor.ileo_water_index_7654321
 ```
 
 Ces entités n'ont pas de `unique_id`, car elles sont publiées par l'app via l'API d'états Home Assistant. Home Assistant ne permet donc pas de les renommer depuis l'interface. Utilisez `meter_names` dans la configuration de l'app pour choisir les noms affichés.

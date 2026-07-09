@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.9
+
+- Remplace les exemples de compteurs par des identifiants fictifs dans la documentation et les tests.
+
 ## 0.1.8
 
 - Publie les compteurs détectés sans relevé avec l'état numérique `0` au lieu de `unknown`.

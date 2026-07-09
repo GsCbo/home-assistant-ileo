@@ -191,11 +191,11 @@ def test_write_meter_sync_state_preserves_installation_id(tmp_path: Path) -> Non
     state_path = tmp_path / "last_sync.json"
     write_last_sync(state_path, {"installation_id": "stable"})
 
-    write_meter_sync_state(state_path, "4052059", {"last_imported_date": "2025-03-03"})
+    write_meter_sync_state(state_path, "1234567", {"last_imported_date": "2025-03-03"})
 
     state = read_last_sync(state_path)
     assert state["installation_id"] == "stable"
-    assert state["meters"]["4052059"]["last_imported_date"] == "2025-03-03"
+    assert state["meters"]["1234567"]["last_imported_date"] == "2025-03-03"
 
 
 @pytest.mark.asyncio
@@ -204,10 +204,10 @@ async def test_sync_once_publishes_each_meter_including_empty_contract(tmp_path:
     ileo_client = FakeIleoClient(
         meter_readings=[
             IleoMeterReadings(
-                IleoMeter("4052059", "Contrat 4052059"),
-                [IleoReading(date(2026, 6, 28), 180.0, 120180, meter_id="4052059")],
+                IleoMeter("1234567", "Contrat 1234567"),
+                [IleoReading(date(2026, 6, 28), 180.0, 120180, meter_id="1234567")],
             ),
-            IleoMeterReadings(IleoMeter("4147436", "Contrat 4147436"), []),
+            IleoMeterReadings(IleoMeter("7654321", "Contrat 7654321"), []),
         ]
     )
     ha_client = FakeHomeAssistantClient()
@@ -221,15 +221,15 @@ async def test_sync_once_publishes_each_meter_including_empty_contract(tmp_path:
     )
 
     assert [state[0] for state in ha_client.states] == [
-        meter_entity_id("4052059"),
-        meter_entity_id("4147436"),
+        meter_entity_id("1234567"),
+        meter_entity_id("7654321"),
     ]
     assert ha_client.states[0][1] == "120180"
     assert ha_client.states[1][1] == "0"
     assert ha_client.states[1][2]["assumed_zero"] is True
     assert result.fetched_readings == 1
     assert result.imported_readings == 1
-    assert read_last_sync(state_path)["meters"]["4052059"] == {
+    assert read_last_sync(state_path)["meters"]["1234567"] == {
         "last_imported_date": "2026-06-28",
         "latest_index_litres": 120180,
     }
@@ -241,8 +241,8 @@ async def test_sync_once_uses_configured_meter_name(tmp_path: Path) -> None:
     ileo_client = FakeIleoClient(
         meter_readings=[
             IleoMeterReadings(
-                IleoMeter("4052059", "Contrat 4052059"),
-                [IleoReading(date(2026, 6, 28), 180.0, 120180, meter_id="4052059")],
+                IleoMeter("1234567", "Contrat 1234567"),
+                [IleoReading(date(2026, 6, 28), 180.0, 120180, meter_id="1234567")],
             ),
         ]
     )
@@ -255,7 +255,7 @@ async def test_sync_once_uses_configured_meter_name(tmp_path: Path) -> None:
             start_date=date(2025, 3, 1),
             sync_interval_hours=4,
             mode="sync",
-            meter_names={"4052059": "Compteur maison"},
+            meter_names={"1234567": "Compteur principal"},
         ),
         ileo_client,
         ha_client,
@@ -264,7 +264,7 @@ async def test_sync_once_uses_configured_meter_name(tmp_path: Path) -> None:
     )
 
     assert result.imported_readings == 1
-    assert ha_client.states[0][2]["friendly_name"] == "ILEO eau - Compteur maison"
+    assert ha_client.states[0][2]["friendly_name"] == "ILEO eau - Compteur principal"
 
 
 def test_get_or_create_installation_id_reuses_persisted_value(tmp_path: Path) -> None:
