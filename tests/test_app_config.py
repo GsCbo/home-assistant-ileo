@@ -50,6 +50,19 @@ def test_parse_config_accepts_meter_names_mapping() -> None:
     }
 
 
+def test_parse_config_accepts_current_year_start_date() -> None:
+    config = parse_config(
+        {
+            "username": "user@example.test",
+            "password": "secret",
+            "start_date": "current_year",
+            "sync_interval_hours": 4,
+        }
+    )
+
+    assert config.start_date == date(date.today().year, 1, 1)
+
+
 @pytest.mark.parametrize("meter_names", ["1234567 Maison", "=Maison", "1234567="])
 def test_parse_config_rejects_invalid_meter_names(meter_names: str) -> None:
     with pytest.raises(ConfigError):

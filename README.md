@@ -39,7 +39,7 @@ Configuration de base :
 ```yaml
 username: votre-email@example.com
 password: votre-mot-de-passe
-start_date: "2025-03-01"
+start_date: "current_year"
 sync_interval_hours: 4
 mode: sync
 meter_names: |
@@ -53,7 +53,7 @@ meter_names: |
 | --- | --- |
 | `username` | Adresse e-mail de votre compte ILEO. |
 | `password` | Mot de passe de votre compte ILEO. |
-| `start_date` | Première date à importer, au format `YYYY-MM-DD`. |
+| `start_date` | Première date à importer, au format `YYYY-MM-DD`, ou `current_year` pour utiliser le 1er janvier de l'année courante. |
 | `sync_interval_hours` | Fréquence de synchronisation, en heures. La valeur par défaut est `4`. |
 | `mode` | `sync` pour synchroniser. `reset` existe pour préparer une remise à zéro, mais ne supprime rien pour l'instant. |
 | `meter_names` | Optionnel. Une ligne `id_compteur=nom affiché` pour personnaliser les noms publiés dans Home Assistant. |
@@ -65,8 +65,9 @@ Au démarrage, l'app :
 1. lit sa configuration ;
 2. se connecte à votre espace ILEO ;
 3. télécharge l'export CSV de consommation ;
-4. met à jour l'entité `sensor.ileo_water_index` ;
-5. recommence toutes les `sync_interval_hours` heures, avec un décalage stable entre 0 et 30 minutes pour éviter que toutes les installations appellent ILEO en même temps.
+4. importe les relevés datés dans Recorder pour alimenter l'historique du tableau de bord Énergie ;
+5. met à jour l'entité `sensor.ileo_water_index` ;
+6. recommence toutes les `sync_interval_hours` heures, avec un décalage stable entre 0 et 30 minutes pour éviter que toutes les installations appellent ILEO en même temps.
 
 Le décalage entre deux synchronisations est stable par installation. Si votre instance ajoute 12 minutes aujourd'hui, elle gardera le même ordre de grandeur aux prochains cycles.
 
@@ -95,6 +96,8 @@ Ces entités n'ont pas de `unique_id`, car elles sont publiées par l'app via l'
 
 Après une première synchronisation réussie, Home Assistant dispose d'une statistique d'eau basée sur `sensor.ileo_water_index`.
 
+Lors du premier import Recorder d'un compteur, l'app reprend les relevés disponibles depuis `start_date`, crée une base de consommation à `0 L`, puis importe les consommations quotidiennes comme statistiques datées. Les synchronisations suivantes ne réimportent que les relevés plus récents que le dernier relevé déjà importé.
+
 Pour l'ajouter au tableau de bord Énergie :
 
 1. Ouvrez `Paramètres`.
@@ -112,7 +115,7 @@ L'entité expose les métadonnées attendues par Home Assistant :
 
 - Les données ILEO ne sont pas forcément disponibles en temps réel.
 - L'app dépend du portail ILEO. Si la page de connexion ou le format CSV change, une correction de l'app pourra être nécessaire.
-- L'app mémorise le dernier relevé vu par compteur dans `/data/last_sync.json`.
+- L'app mémorise le dernier relevé vu et la dernière statistique importée par compteur dans `/data/last_sync.json`.
 - Les appels ILEO sont volontairement espacés pour rester raisonnables côté service.
 
 ## Dépannage
@@ -122,7 +125,7 @@ En cas de problème :
 1. Ouvrez l'app dans Home Assistant.
 2. Consultez l'onglet `Journal`.
 3. Vérifiez que vos identifiants ILEO fonctionnent bien sur le site officiel.
-4. Contrôlez que `start_date` est au format `YYYY-MM-DD`.
+4. Contrôlez que `start_date` est au format `YYYY-MM-DD` ou vaut `current_year`.
 5. Redémarrez l'app après modification de la configuration.
 
 Les erreurs de connexion ILEO, de CSV invalide ou de configuration sont journalisées explicitement.

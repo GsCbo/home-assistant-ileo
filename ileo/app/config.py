@@ -73,10 +73,13 @@ def _required_str(data: dict[str, Any], key: str) -> str:
 
 
 def _parse_start_date(value: str) -> date:
+    if value == "current_year":
+        today = date.today()
+        return date(today.year, 1, 1)
     try:
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError as err:
-        raise ConfigError("start_date must use YYYY-MM-DD format") from err
+        raise ConfigError("start_date must use YYYY-MM-DD format or current_year") from err
 
 
 def _parse_sync_interval(value: Any) -> int:

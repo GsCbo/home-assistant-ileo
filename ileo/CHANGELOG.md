@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.10
+
+- Importe les relevés ILEO historiques dans Recorder via l'API WebSocket `recorder/import_statistics`.
+- Crée une base de consommation à `0 L` au `start_date`, puis importe les consommations quotidiennes comme statistiques datées.
+- Mémorise la dernière statistique importée par compteur pour ne reprendre ensuite que les nouveaux relevés.
+- Accepte `current_year` comme valeur de `start_date` pour utiliser automatiquement le 1er janvier de l'année courante.
+
 ## 0.1.9
 
 - Remplace les exemples de compteurs par des identifiants fictifs dans la documentation et les tests.

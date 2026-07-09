@@ -17,6 +17,7 @@ from .ha_api import HomeAssistantClient
 from .ileo_client import DEFAULT_METER_ID, IleoApiClient, IleoMeter, IleoMeterReadings, IleoReading
 from .statistics import (
     empty_meter_state,
+    import_statistics_payload,
     latest_state,
     meter_entity_id,
 )
@@ -81,17 +82,36 @@ async def sync_once(
         meter_sync = read_meter_sync_state(state_path, meter.meter_id)
 
         if readings:
-            latest = max(readings, key=lambda reading: reading.date)
-            if latest.date.isoformat() > meter_sync.get("last_imported_date", ""):
-                imported_readings += 1
-            write_meter_sync_state(
-                state_path,
-                meter.meter_id,
-                {
-                    "last_imported_date": latest.date.isoformat(),
-                    "latest_index_litres": latest.index_litres,
-                },
+            statistics_payload, imported_count, statistics_date, statistics_sum = (
+                import_statistics_payload(
+                    readings,
+                    meter_id=meter.meter_id,
+                    meter_label=meter_label,
+                    start_date=config.start_date,
+                    previous_imported_date=meter_sync.get(
+                        "statistics_last_imported_date"
+                    ),
+                    previous_sum_litres=float(
+                        meter_sync.get("statistics_sum_litres", 0.0)
+                    ),
+                )
             )
+            if statistics_payload is not None:
+                await ha_client.async_import_statistics(statistics_payload)
+                imported_readings += imported_count
+
+            latest = max(readings, key=lambda reading: reading.date)
+            meter_state = {
+                "last_imported_date": latest.date.isoformat(),
+                "latest_index_litres": latest.index_litres,
+            }
+            if statistics_date is not None:
+                meter_state = {
+                    **meter_state,
+                    "statistics_last_imported_date": statistics_date,
+                    "statistics_sum_litres": statistics_sum,
+                }
+            write_meter_sync_state(state_path, meter.meter_id, meter_state)
             if latest_reading_date is None or latest.date.isoformat() > latest_reading_date:
                 latest_reading_date = latest.date.isoformat()
 

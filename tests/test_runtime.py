@@ -62,6 +62,7 @@ class FakeIleoClient:
 class FakeHomeAssistantClient:
     def __init__(self) -> None:
         self.states: list[tuple[str, str | int | float, dict[str, Any]]] = []
+        self.statistics: list[dict[str, Any]] = []
 
     async def async_set_state(
         self,
@@ -70,6 +71,13 @@ class FakeHomeAssistantClient:
         attributes: dict[str, Any],
     ) -> dict[str, Any]:
         self.states.append((entity_id, state, attributes))
+        return {}
+
+    async def async_import_statistics(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        self.statistics.append(payload)
         return {}
 
 
@@ -106,15 +114,48 @@ async def test_sync_once_publishes_state_statistics_and_marker(tmp_path: Path) -
     assert ha_client.states[0][0] == WATER_ENTITY_ID
     assert ha_client.states[0][1] == "120180"
     assert result.fetched_readings == 2
-    assert result.imported_readings == 1
+    assert result.imported_readings == 2
+    assert ha_client.statistics == [
+        {
+            "metadata": {
+                "has_mean": False,
+                "has_sum": True,
+                "mean_type": "none",
+                "name": "ILEO eau - ILEO",
+                "source": "recorder",
+                "statistic_id": WATER_ENTITY_ID,
+                "unit_class": "volume",
+                "unit_of_measurement": "L",
+            },
+            "stats": [
+                {
+                    "start": "2025-03-01T00:00:00+01:00",
+                    "state": 119880,
+                    "sum": 0.0,
+                },
+                {
+                    "start": "2025-03-02T00:00:00+01:00",
+                    "state": 120000,
+                    "sum": 120.0,
+                },
+                {
+                    "start": "2025-03-03T00:00:00+01:00",
+                    "state": 120180,
+                    "sum": 300.0,
+                },
+            ],
+        }
+    ]
     assert read_last_sync(state_path)["meters"]["default"] == {
         "last_imported_date": "2025-03-02",
         "latest_index_litres": 120180,
+        "statistics_last_imported_date": "2025-03-02",
+        "statistics_sum_litres": 300.0,
     }
 
 
 @pytest.mark.asyncio
-async def test_sync_once_updates_marker_without_recorder_import_service(tmp_path: Path) -> None:
+async def test_sync_once_imports_statistics_when_legacy_marker_exists(tmp_path: Path) -> None:
     state_path = tmp_path / "last_sync.json"
     write_last_sync(
         state_path,
@@ -139,11 +180,62 @@ async def test_sync_once_updates_marker_without_recorder_import_service(tmp_path
         today=date(2025, 3, 31),
     )
 
-    assert result.imported_readings == 1
+    assert result.imported_readings == 2
+    assert len(ha_client.statistics) == 1
+    assert len(ha_client.statistics[0]["stats"]) == 3
     assert read_last_sync(state_path)["installation_id"] == "stable-installation"
     assert read_last_sync(state_path)["meters"]["default"] == {
         "last_imported_date": "2025-03-02",
         "latest_index_litres": 120180,
+        "statistics_last_imported_date": "2025-03-02",
+        "statistics_sum_litres": 300.0,
+    }
+
+
+@pytest.mark.asyncio
+async def test_sync_once_imports_only_readings_after_statistics_marker(
+    tmp_path: Path,
+) -> None:
+    state_path = tmp_path / "last_sync.json"
+    write_meter_sync_state(
+        state_path,
+        "default",
+        {
+            "last_imported_date": "2025-03-01",
+            "latest_index_litres": 120000,
+            "statistics_last_imported_date": "2025-03-01",
+            "statistics_sum_litres": 120.0,
+        },
+    )
+    ileo_client = FakeIleoClient(
+        [
+            IleoReading(date(2025, 3, 1), 120.0, 120000),
+            IleoReading(date(2025, 3, 2), 180.0, 120180),
+        ]
+    )
+    ha_client = FakeHomeAssistantClient()
+
+    result = await sync_once(
+        _config(),
+        ileo_client,
+        ha_client,
+        state_path=state_path,
+        today=date(2025, 3, 31),
+    )
+
+    assert result.imported_readings == 1
+    assert ha_client.statistics[0]["stats"] == [
+        {
+            "start": "2025-03-03T00:00:00+01:00",
+            "state": 120180,
+            "sum": 300.0,
+        }
+    ]
+    assert read_last_sync(state_path)["meters"]["default"] == {
+        "last_imported_date": "2025-03-02",
+        "latest_index_litres": 120180,
+        "statistics_last_imported_date": "2025-03-02",
+        "statistics_sum_litres": 300.0,
     }
 
 
@@ -229,9 +321,12 @@ async def test_sync_once_publishes_each_meter_including_empty_contract(tmp_path:
     assert ha_client.states[1][2]["assumed_zero"] is True
     assert result.fetched_readings == 1
     assert result.imported_readings == 1
+    assert len(ha_client.statistics) == 1
     assert read_last_sync(state_path)["meters"]["1234567"] == {
         "last_imported_date": "2026-06-28",
         "latest_index_litres": 120180,
+        "statistics_last_imported_date": "2026-06-28",
+        "statistics_sum_litres": 180.0,
     }
 
 

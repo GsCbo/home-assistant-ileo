@@ -9,7 +9,7 @@ Elle récupère les relevés disponibles depuis votre espace client ILEO, les im
 ```yaml
 username: votre-email@example.com
 password: votre-mot-de-passe
-start_date: "2025-03-01"
+start_date: "current_year"
 sync_interval_hours: 4
 mode: sync
 meter_names: |
@@ -21,14 +21,16 @@ meter_names: |
 
 - `username` : adresse e-mail de votre compte ILEO.
 - `password` : mot de passe de votre compte ILEO.
-- `start_date` : première date à importer, au format `YYYY-MM-DD`.
+- `start_date` : première date à importer, au format `YYYY-MM-DD`, ou `current_year` pour utiliser le 1er janvier de l'année courante.
 - `sync_interval_hours` : fréquence de synchronisation en heures, `4` par défaut.
 - `mode` : `sync` pour importer les relevés. `reset` ne supprime rien pour l'instant.
 - `meter_names` : optionnel, une ligne `id_compteur=nom affiché` pour personnaliser les noms des compteurs.
 
 ## Fonctionnement
 
-Au démarrage, l'app synchronise immédiatement les données disponibles. Ensuite, elle recommence selon la fréquence configurée avec un décalage stable entre 0 et 30 minutes afin d'éviter que toutes les installations appellent ILEO au même moment.
+Au démarrage, l'app synchronise immédiatement les données disponibles. Lors du premier import Recorder d'un compteur, elle reprend les relevés disponibles depuis `start_date`, crée une base de consommation à `0 L`, puis importe les consommations quotidiennes comme statistiques datées.
+
+Ensuite, elle recommence selon la fréquence configurée avec un décalage stable entre 0 et 30 minutes afin d'éviter que toutes les installations appellent ILEO au même moment. Les synchronisations suivantes ne réimportent que les relevés plus récents que le dernier relevé déjà importé.
 
 ## Plusieurs contrats
 
