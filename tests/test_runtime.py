@@ -120,7 +120,7 @@ async def test_sync_once_publishes_state_statistics_and_marker(tmp_path: Path) -
             "metadata": {
                 "has_mean": False,
                 "has_sum": True,
-                "mean_type": "none",
+                "mean_type": 0,
                 "name": "ILEO eau - ILEO",
                 "source": "recorder",
                 "statistic_id": WATER_ENTITY_ID,

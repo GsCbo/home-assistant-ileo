@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.11
+
+- Corrige le format `mean_type` envoyé à l'API WebSocket `recorder/import_statistics`.
+
 ## 0.1.10
 
 - Importe les relevés ILEO historiques dans Recorder via l'API WebSocket `recorder/import_statistics`.

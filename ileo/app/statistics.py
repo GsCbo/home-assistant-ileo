@@ -16,6 +16,7 @@ WATER_NAME = "ILEO water index"
 WATER_UNIT = "L"
 WATER_UNIT_CLASS = "volume"
 WATER_TIME_ZONE = ZoneInfo("Europe/Paris")
+STATISTIC_MEAN_TYPE_NONE = 0
 
 
 def meter_entity_id(meter_id: str) -> str:
@@ -119,7 +120,7 @@ def import_statistics_payload(
         "metadata": {
             "has_mean": False,
             "has_sum": True,
-            "mean_type": "none",
+            "mean_type": STATISTIC_MEAN_TYPE_NONE,
             "name": meter_name(meter_label),
             "source": WATER_SOURCE,
             "statistic_id": meter_entity_id(meter_id),
