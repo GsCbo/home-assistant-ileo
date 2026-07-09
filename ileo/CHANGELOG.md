@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.13
+
+- Traite les exports ILEO vides, HTML ou non-CSV comme une absence de relevé pour le compteur concerné.
+- Conserve une erreur explicite lorsqu'un vrai CSV perd seulement une partie des colonnes attendues.
+
 ## 0.1.12
 
 - Empêche Recorder de générer des statistiques automatiques concurrentes pour le sensor REST ILEO.

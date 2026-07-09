@@ -165,6 +165,9 @@ def parse_readings_csv(
     csv_text: str, *, meter_id: str = DEFAULT_METER_ID
 ) -> list[IleoReading]:
     """Parse an ILEO CSV export into chronological positive readings."""
+    if _looks_like_empty_export(csv_text):
+        return []
+
     reader = csv.DictReader(StringIO(csv_text), delimiter=";")
     columns = {_normalize_header(fieldname): fieldname for fieldname in reader.fieldnames or []}
     missing_columns = REQUIRED_COLUMNS - set(columns)
@@ -259,6 +262,15 @@ def _normalize_header(value: str) -> str:
 
 def _normalize_number(value: str) -> str:
     return value.replace(" ", "").replace("\u00a0", "").replace(",", ".")
+
+
+def _looks_like_empty_export(csv_text: str) -> bool:
+    stripped = csv_text.strip()
+    if not stripped:
+        return True
+
+    first_line = stripped.splitlines()[0].strip()
+    return first_line.startswith("<") or ";" not in first_line
 
 
 def _extract_hidden_inputs(html: str) -> dict[str, str]:

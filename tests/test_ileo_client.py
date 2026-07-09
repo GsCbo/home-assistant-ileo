@@ -308,6 +308,18 @@ def test_parse_readings_csv_assigns_requested_meter_id() -> None:
     assert readings[0].meter_id == "1234567"
 
 
+@pytest.mark.parametrize(
+    "csv_text",
+    [
+        "",
+        "<html><body>Aucune donnee disponible</body></html>",
+        "Aucune donnee disponible",
+    ],
+)
+def test_parse_readings_csv_returns_empty_for_non_csv_export(csv_text: str) -> None:
+    assert parse_readings_csv(csv_text) == []
+
+
 def test_parse_readings_csv_raises_for_missing_required_columns() -> None:
     csv_text = "date;consommation (litres)\n02/03/2025;180\n"
 
