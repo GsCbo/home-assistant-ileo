@@ -2,7 +2,7 @@
 
 App Home Assistant pour synchroniser votre consommation d'eau ILEO avec le tableau de bord Énergie.
 
-Elle récupère les relevés disponibles depuis votre espace client ILEO, les importe dans les statistiques longue durée de Home Assistant et met à jour l'entité `sensor.ileo_water_index`.
+Elle récupère les relevés disponibles depuis votre espace client ILEO, les importe dans les statistiques longue durée de Home Assistant et met à jour les entités `sensor.ileo_water_index_*`.
 
 ## Configuration
 
@@ -31,6 +31,8 @@ meter_names: |
 Au démarrage, l'app synchronise immédiatement les données disponibles. Lors du premier import Recorder d'un compteur, elle reprend les relevés disponibles depuis `start_date`, crée une base de consommation à `0 L`, puis importe les consommations quotidiennes comme statistiques datées.
 
 Ensuite, elle recommence selon la fréquence configurée avec un décalage stable entre 0 et 30 minutes afin d'éviter que toutes les installations appellent ILEO au même moment. Les synchronisations suivantes ne réimportent que les relevés plus récents que le dernier relevé déjà importé.
+
+Les entités `sensor.ileo_water_index_*` servent à afficher l'état courant. Le tableau de bord Énergie doit utiliser les statistiques Recorder publiées dans le namespace `ileo:`, par exemple `ileo:water_index_1234567`.
 
 ## Plusieurs contrats
 

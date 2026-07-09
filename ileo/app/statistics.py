@@ -11,7 +11,8 @@ from zoneinfo import ZoneInfo
 from .ileo_client import DEFAULT_METER_ID, IleoReading
 
 WATER_ENTITY_ID = "sensor.ileo_water_index"
-WATER_SOURCE = "recorder"
+WATER_STATISTIC_ID = "ileo:water_index"
+WATER_SOURCE = "ileo"
 WATER_NAME = "ILEO water index"
 WATER_UNIT = "L"
 WATER_UNIT_CLASS = "volume"
@@ -24,6 +25,13 @@ def meter_entity_id(meter_id: str) -> str:
     if meter_id == DEFAULT_METER_ID:
         return WATER_ENTITY_ID
     return f"{WATER_ENTITY_ID}_{_slugify(meter_id)}"
+
+
+def meter_statistic_id(meter_id: str) -> str:
+    """Build the external Recorder statistic id for a meter."""
+    if meter_id == DEFAULT_METER_ID:
+        return WATER_STATISTIC_ID
+    return f"{WATER_STATISTIC_ID}_{_slugify(meter_id)}"
 
 
 def meter_name(meter_label: str | None) -> str:
@@ -143,7 +151,7 @@ def import_statistics_payload(
             "mean_type": STATISTIC_MEAN_TYPE_NONE,
             "name": meter_name(meter_label),
             "source": WATER_SOURCE,
-            "statistic_id": meter_entity_id(meter_id),
+            "statistic_id": meter_statistic_id(meter_id),
             "unit_class": WATER_UNIT_CLASS,
             "unit_of_measurement": WATER_UNIT,
         },

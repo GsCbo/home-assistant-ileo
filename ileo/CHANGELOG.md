@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.14
+
+- Publie les statistiques Recorder dans le namespace externe `ileo:` au lieu d'utiliser directement les entités `sensor.*`.
+- Garde les entités `sensor.ileo_water_index_*` comme états visibles sans statistiques automatiques concurrentes.
+- Prépare les sources Énergie à pointer vers les statistiques `ileo:water_index_*`, ce qui évite les warnings de classe d'état sur les sensors.
+
 ## 0.1.13
 
 - Traite les exports ILEO vides, HTML ou non-CSV comme une absence de relevé pour le compteur concerné.

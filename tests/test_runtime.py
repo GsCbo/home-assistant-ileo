@@ -26,7 +26,7 @@ from app.main import (
     write_meter_sync_state,
     write_last_sync,
 )
-from app.statistics import WATER_ENTITY_ID, meter_entity_id
+from app.statistics import WATER_ENTITY_ID, meter_entity_id, meter_statistic_id
 
 
 class FakeIleoClient:
@@ -120,8 +120,8 @@ async def test_sync_once_publishes_state_statistics_and_marker(tmp_path: Path) -
         "has_sum": True,
         "mean_type": 0,
         "name": "ILEO eau - ILEO",
-        "source": "recorder",
-        "statistic_id": WATER_ENTITY_ID,
+        "source": "ileo",
+        "statistic_id": meter_statistic_id("default"),
         "unit_class": "volume",
         "unit_of_measurement": "L",
     }

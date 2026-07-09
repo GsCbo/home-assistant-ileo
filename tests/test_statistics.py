@@ -15,6 +15,7 @@ from app.statistics import (
     import_statistics_payload,
     latest_state,
     meter_entity_id,
+    meter_statistic_id,
 )
 
 
@@ -25,6 +26,13 @@ def test_meter_entity_id_keeps_single_meter_compatibility() -> None:
 def test_meter_entity_id_slugs_explicit_meter_id() -> None:
     assert meter_entity_id("Contrat 12 Rue de Lille") == (
         "sensor.ileo_water_index_contrat_12_rue_de_lille"
+    )
+
+
+def test_meter_statistic_id_uses_external_ileo_namespace() -> None:
+    assert meter_statistic_id("default") == "ileo:water_index"
+    assert meter_statistic_id("Contrat 12 Rue de Lille") == (
+        "ileo:water_index_contrat_12_rue_de_lille"
     )
 
 
@@ -87,6 +95,7 @@ def test_import_statistics_payload_carries_forward_sum_until_today() -> None:
     assert imported_date == "2026-06-28"
     assert running_sum == 417.0
     assert payload is not None
+    assert payload["metadata"]["statistic_id"] == "ileo:water_index_1234567"
     assert payload["stats"] == [
         {
             "start": "2026-06-30T00:00:00+02:00",
