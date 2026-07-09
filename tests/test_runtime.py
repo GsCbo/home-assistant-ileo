@@ -151,6 +151,7 @@ async def test_sync_once_publishes_state_statistics_and_marker(tmp_path: Path) -
         "last_imported_date": "2025-03-02",
         "latest_index_litres": 120180,
         "statistics_last_imported_date": "2025-03-02",
+        "statistics_id": meter_statistic_id("default"),
         "statistics_sum_litres": 300.0,
         "statistics_bridge_until_date": "2025-03-31",
     }
@@ -190,6 +191,7 @@ async def test_sync_once_imports_statistics_when_legacy_marker_exists(tmp_path: 
         "last_imported_date": "2025-03-02",
         "latest_index_litres": 120180,
         "statistics_last_imported_date": "2025-03-02",
+        "statistics_id": meter_statistic_id("default"),
         "statistics_sum_litres": 300.0,
         "statistics_bridge_until_date": "2025-03-31",
     }
@@ -207,6 +209,7 @@ async def test_sync_once_imports_only_readings_after_statistics_marker(
             "last_imported_date": "2025-03-01",
             "latest_index_litres": 120000,
             "statistics_last_imported_date": "2025-03-01",
+            "statistics_id": meter_statistic_id("default"),
             "statistics_sum_litres": 120.0,
             "statistics_bridge_until_date": "2025-03-02",
         },
@@ -254,9 +257,66 @@ async def test_sync_once_imports_only_readings_after_statistics_marker(
         "last_imported_date": "2025-03-02",
         "latest_index_litres": 120180,
         "statistics_last_imported_date": "2025-03-02",
+        "statistics_id": meter_statistic_id("default"),
         "statistics_sum_litres": 300.0,
         "statistics_bridge_until_date": "2025-03-31",
     }
+
+
+@pytest.mark.asyncio
+async def test_sync_once_reimports_when_statistic_id_changes(tmp_path: Path) -> None:
+    state_path = tmp_path / "last_sync.json"
+    write_meter_sync_state(
+        state_path,
+        "default",
+        {
+            "last_imported_date": "2025-03-02",
+            "latest_index_litres": 120180,
+            "statistics_last_imported_date": "2025-03-02",
+            "statistics_sum_litres": 300.0,
+            "statistics_bridge_until_date": "2025-03-31",
+        },
+    )
+    ileo_client = FakeIleoClient(
+        [
+            IleoReading(date(2025, 3, 1), 120.0, 120000),
+            IleoReading(date(2025, 3, 2), 180.0, 120180),
+        ]
+    )
+    ha_client = FakeHomeAssistantClient()
+
+    result = await sync_once(
+        _config(),
+        ileo_client,
+        ha_client,
+        state_path=state_path,
+        today=date(2025, 3, 31),
+    )
+
+    assert result.imported_readings == 2
+    assert ha_client.statistics[0]["metadata"]["statistic_id"] == (
+        meter_statistic_id("default")
+    )
+    assert ha_client.statistics[0]["stats"][:3] == [
+        {
+            "start": "2025-03-01T00:00:00+01:00",
+            "state": 119880.0,
+            "sum": 0.0,
+        },
+        {
+            "start": "2025-03-02T00:00:00+01:00",
+            "state": 120000,
+            "sum": 120.0,
+        },
+        {
+            "start": "2025-03-03T00:00:00+01:00",
+            "state": 120180,
+            "sum": 300.0,
+        },
+    ]
+    assert read_last_sync(state_path)["meters"]["default"]["statistics_id"] == (
+        meter_statistic_id("default")
+    )
 
 
 @pytest.mark.asyncio
@@ -346,6 +406,7 @@ async def test_sync_once_publishes_each_meter_including_empty_contract(tmp_path:
         "last_imported_date": "2026-06-28",
         "latest_index_litres": 120180,
         "statistics_last_imported_date": "2026-06-28",
+        "statistics_id": meter_statistic_id("1234567"),
         "statistics_sum_litres": 180.0,
         "statistics_bridge_until_date": "2026-07-08",
     }

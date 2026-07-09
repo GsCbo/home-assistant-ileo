@@ -20,6 +20,7 @@ from .statistics import (
     import_statistics_payload,
     latest_state,
     meter_entity_id,
+    meter_statistic_id,
 )
 
 STATE_PATH = Path("/data/last_sync.json")
@@ -82,21 +83,32 @@ async def sync_once(
         meter_sync = read_meter_sync_state(state_path, meter.meter_id)
 
         if readings:
+            statistic_id = meter_statistic_id(meter.meter_id)
+            statistic_id_matches = meter_sync.get("statistics_id") == statistic_id
+            previous_statistics_date = (
+                meter_sync.get("statistics_last_imported_date")
+                if statistic_id_matches
+                else None
+            )
+            previous_statistics_sum = (
+                float(meter_sync.get("statistics_sum_litres", 0.0))
+                if statistic_id_matches
+                else 0.0
+            )
+            previous_bridge_date = (
+                meter_sync.get("statistics_bridge_until_date")
+                if statistic_id_matches
+                else None
+            )
             statistics_payload, imported_count, statistics_date, statistics_sum = (
                 import_statistics_payload(
                     readings,
                     meter_id=meter.meter_id,
                     meter_label=meter_label,
                     start_date=config.start_date,
-                    previous_imported_date=meter_sync.get(
-                        "statistics_last_imported_date"
-                    ),
-                    previous_sum_litres=float(
-                        meter_sync.get("statistics_sum_litres", 0.0)
-                    ),
-                    previous_bridge_until_date=meter_sync.get(
-                        "statistics_bridge_until_date"
-                    ),
+                    previous_imported_date=previous_statistics_date,
+                    previous_sum_litres=previous_statistics_sum,
+                    previous_bridge_until_date=previous_bridge_date,
                     bridge_until=end_date,
                 )
             )
@@ -112,6 +124,7 @@ async def sync_once(
             if statistics_date is not None:
                 meter_state = {
                     **meter_state,
+                    "statistics_id": statistic_id,
                     "statistics_last_imported_date": statistics_date,
                     "statistics_sum_litres": statistics_sum,
                     "statistics_bridge_until_date": end_date.isoformat(),

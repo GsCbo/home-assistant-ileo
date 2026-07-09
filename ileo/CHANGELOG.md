@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.15
+
+- Réimporte les statistiques lorsqu'un compteur possède uniquement les anciens marqueurs d'import `sensor.*`.
+- Ajoute un marqueur `statistics_id` par compteur pour éviter de manquer les migrations futures d'identifiants statistiques.
+
 ## 0.1.14
 
 - Publie les statistiques Recorder dans le namespace externe `ileo:` au lieu d'utiliser directement les entités `sensor.*`.
