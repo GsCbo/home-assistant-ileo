@@ -115,42 +115,44 @@ async def test_sync_once_publishes_state_statistics_and_marker(tmp_path: Path) -
     assert ha_client.states[0][1] == "120180"
     assert result.fetched_readings == 2
     assert result.imported_readings == 2
-    assert ha_client.statistics == [
+    assert ha_client.statistics[0]["metadata"] == {
+        "has_mean": False,
+        "has_sum": True,
+        "mean_type": 0,
+        "name": "ILEO eau - ILEO",
+        "source": "recorder",
+        "statistic_id": WATER_ENTITY_ID,
+        "unit_class": "volume",
+        "unit_of_measurement": "L",
+    }
+    assert ha_client.statistics[0]["stats"][:3] == [
         {
-            "metadata": {
-                "has_mean": False,
-                "has_sum": True,
-                "mean_type": 0,
-                "name": "ILEO eau - ILEO",
-                "source": "recorder",
-                "statistic_id": WATER_ENTITY_ID,
-                "unit_class": "volume",
-                "unit_of_measurement": "L",
-            },
-            "stats": [
-                {
-                    "start": "2025-03-01T00:00:00+01:00",
-                    "state": 119880,
-                    "sum": 0.0,
-                },
-                {
-                    "start": "2025-03-02T00:00:00+01:00",
-                    "state": 120000,
-                    "sum": 120.0,
-                },
-                {
-                    "start": "2025-03-03T00:00:00+01:00",
-                    "state": 120180,
-                    "sum": 300.0,
-                },
-            ],
-        }
+            "start": "2025-03-01T00:00:00+01:00",
+            "state": 119880.0,
+            "sum": 0.0,
+        },
+        {
+            "start": "2025-03-02T00:00:00+01:00",
+            "state": 120000,
+            "sum": 120.0,
+        },
+        {
+            "start": "2025-03-03T00:00:00+01:00",
+            "state": 120180,
+            "sum": 300.0,
+        },
     ]
+    assert ha_client.statistics[0]["stats"][-1] == {
+        "start": "2025-03-31T00:00:00+02:00",
+        "state": 120180,
+        "sum": 300.0,
+    }
     assert read_last_sync(state_path)["meters"]["default"] == {
         "last_imported_date": "2025-03-02",
         "latest_index_litres": 120180,
         "statistics_last_imported_date": "2025-03-02",
         "statistics_sum_litres": 300.0,
+        "statistics_bridge_until_date": "2025-03-31",
     }
 
 
@@ -182,13 +184,14 @@ async def test_sync_once_imports_statistics_when_legacy_marker_exists(tmp_path: 
 
     assert result.imported_readings == 2
     assert len(ha_client.statistics) == 1
-    assert len(ha_client.statistics[0]["stats"]) == 3
+    assert len(ha_client.statistics[0]["stats"]) == 31
     assert read_last_sync(state_path)["installation_id"] == "stable-installation"
     assert read_last_sync(state_path)["meters"]["default"] == {
         "last_imported_date": "2025-03-02",
         "latest_index_litres": 120180,
         "statistics_last_imported_date": "2025-03-02",
         "statistics_sum_litres": 300.0,
+        "statistics_bridge_until_date": "2025-03-31",
     }
 
 
@@ -205,6 +208,7 @@ async def test_sync_once_imports_only_readings_after_statistics_marker(
             "latest_index_litres": 120000,
             "statistics_last_imported_date": "2025-03-01",
             "statistics_sum_litres": 120.0,
+            "statistics_bridge_until_date": "2025-03-02",
         },
     )
     ileo_client = FakeIleoClient(
@@ -224,18 +228,34 @@ async def test_sync_once_imports_only_readings_after_statistics_marker(
     )
 
     assert result.imported_readings == 1
-    assert ha_client.statistics[0]["stats"] == [
+    assert ha_client.statistics[0]["stats"][:3] == [
         {
             "start": "2025-03-03T00:00:00+01:00",
             "state": 120180,
             "sum": 300.0,
-        }
+        },
+        {
+            "start": "2025-03-04T00:00:00+01:00",
+            "state": 120180,
+            "sum": 300.0,
+        },
+        {
+            "start": "2025-03-05T00:00:00+01:00",
+            "state": 120180,
+            "sum": 300.0,
+        },
     ]
+    assert ha_client.statistics[0]["stats"][-1] == {
+        "start": "2025-03-31T00:00:00+02:00",
+        "state": 120180,
+        "sum": 300.0,
+    }
     assert read_last_sync(state_path)["meters"]["default"] == {
         "last_imported_date": "2025-03-02",
         "latest_index_litres": 120180,
         "statistics_last_imported_date": "2025-03-02",
         "statistics_sum_litres": 300.0,
+        "statistics_bridge_until_date": "2025-03-31",
     }
 
 
@@ -327,6 +347,7 @@ async def test_sync_once_publishes_each_meter_including_empty_contract(tmp_path:
         "latest_index_litres": 120180,
         "statistics_last_imported_date": "2026-06-28",
         "statistics_sum_litres": 180.0,
+        "statistics_bridge_until_date": "2026-07-08",
     }
 
 

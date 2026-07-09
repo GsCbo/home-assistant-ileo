@@ -47,7 +47,6 @@ def latest_state(
     return str(latest.index_litres), {
         **_base_attributes(meter_id, meter_label),
         "device_class": "water",
-        "state_class": "total_increasing",
         "unit_of_measurement": WATER_UNIT,
         "last_reading_date": latest.date.isoformat(),
         "last_daily_litres": latest.litres,
@@ -62,7 +61,6 @@ def empty_meter_state(
     return "0", {
         **_base_attributes(meter_id, meter_label),
         "device_class": "water",
-        "state_class": "total_increasing",
         "unit_of_measurement": WATER_UNIT,
         "assumed_zero": True,
         "last_reading_date": None,
@@ -78,6 +76,8 @@ def import_statistics_payload(
     start_date: date,
     previous_imported_date: str | None = None,
     previous_sum_litres: float = 0.0,
+    previous_bridge_until_date: str | None = None,
+    bridge_until: date | None = None,
 ) -> tuple[dict[str, Any] | None, int, str | None, float]:
     """Build a Recorder statistics import payload and updated import marker."""
     ordered_readings = sorted(readings, key=lambda reading: reading.date)
@@ -91,8 +91,6 @@ def import_statistics_payload(
         if previous_imported_date is None
         or reading.date.isoformat() > previous_imported_date
     ]
-    if not imported_readings:
-        return None, 0, previous_imported_date, previous_sum_litres
 
     running_sum = previous_sum_litres
     stats: list[dict[str, Any]] = []
@@ -115,6 +113,28 @@ def import_statistics_payload(
                 "sum": running_sum,
             }
         )
+
+    latest_known_reading = (
+        imported_readings[-1] if imported_readings else ordered_readings[-1]
+    )
+    if bridge_until is not None:
+        bridge_start = _bridge_start_date(
+            latest_known_reading.date,
+            previous_bridge_until_date,
+            has_imported_readings=bool(imported_readings),
+        )
+        while bridge_start <= bridge_until:
+            stats.append(
+                {
+                    "start": _stat_start(bridge_start),
+                    "state": latest_known_reading.index_litres,
+                    "sum": running_sum,
+                }
+            )
+            bridge_start += timedelta(days=1)
+
+    if not stats:
+        return None, 0, previous_imported_date, previous_sum_litres
 
     payload = {
         "metadata": {
@@ -141,6 +161,17 @@ def _base_attributes(meter_id: str, meter_label: str | None) -> dict[str, Any]:
 
 def _stat_start(value: date) -> str:
     return datetime.combine(value, time.min, WATER_TIME_ZONE).isoformat()
+
+
+def _bridge_start_date(
+    latest_reading_date: date,
+    previous_bridge_until_date: str | None,
+    *,
+    has_imported_readings: bool,
+) -> date:
+    if previous_bridge_until_date and not has_imported_readings:
+        return date.fromisoformat(previous_bridge_until_date) + timedelta(days=1)
+    return latest_reading_date + timedelta(days=2)
 
 
 def _slugify(value: str) -> str:

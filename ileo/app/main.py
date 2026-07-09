@@ -94,6 +94,10 @@ async def sync_once(
                     previous_sum_litres=float(
                         meter_sync.get("statistics_sum_litres", 0.0)
                     ),
+                    previous_bridge_until_date=meter_sync.get(
+                        "statistics_bridge_until_date"
+                    ),
+                    bridge_until=end_date,
                 )
             )
             if statistics_payload is not None:
@@ -110,6 +114,7 @@ async def sync_once(
                     **meter_state,
                     "statistics_last_imported_date": statistics_date,
                     "statistics_sum_litres": statistics_sum,
+                    "statistics_bridge_until_date": end_date.isoformat(),
                 }
             write_meter_sync_state(state_path, meter.meter_id, meter_state)
             if latest_reading_date is None or latest.date.isoformat() > latest_reading_date:

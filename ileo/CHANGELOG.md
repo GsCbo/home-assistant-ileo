@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.12
+
+- Empêche Recorder de générer des statistiques automatiques concurrentes pour le sensor REST ILEO.
+- Ajoute des statistiques de maintien à somme constante jusqu'au jour courant pour éviter les consommations négatives.
+
 ## 0.1.11
 
 - Corrige le format `mean_type` envoyé à l'API WebSocket `recorder/import_statistics`.
