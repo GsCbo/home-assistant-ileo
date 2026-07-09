@@ -78,7 +78,7 @@ Le comportement par défaut est volontairement automatique :
 
 - tous les contrats détectés sont importés ;
 - chaque contrat obtient sa propre statistique Recorder ;
-- un contrat sans consommation est ignoré tant qu'ILEO ne fournit aucun relevé réel.
+- un contrat sans consommation obtient aussi une statistique à `0 L`, puis basculera sur le relevé ILEO réel dès qu'il sera disponible.
 
 Exemples de statistiques :
 

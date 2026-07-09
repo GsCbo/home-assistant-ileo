@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.17
+
+- Cree une statistique Recorder `ileo:water_index*` a `0 L` pour les compteurs detectes sans releve.
+- Conserve ces statistiques a zero sans marquer de dernier releve importe, afin que le premier vrai releve puisse etre importe correctement ensuite.
+
 ## 0.1.16
 
 - Arrete de publier les entites REST `sensor.ileo_water_index*`.

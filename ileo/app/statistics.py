@@ -33,6 +33,40 @@ def meter_name(meter_label: str | None) -> str:
     return WATER_NAME
 
 
+def import_empty_statistics_payload(
+    *,
+    meter_id: str = DEFAULT_METER_ID,
+    meter_label: str | None = None,
+    start_date: date,
+    previous_bridge_until_date: str | None = None,
+    bridge_until: date | None = None,
+) -> tuple[dict[str, Any] | None, str | None, float]:
+    """Build a zero Recorder statistics payload for a detected meter without readings."""
+    if bridge_until is None:
+        return None, None, 0.0
+
+    bridge_start = (
+        date.fromisoformat(previous_bridge_until_date) + timedelta(days=1)
+        if previous_bridge_until_date
+        else start_date
+    )
+    if bridge_start > bridge_until:
+        return None, None, 0.0
+
+    stats: list[dict[str, Any]] = []
+    while bridge_start <= bridge_until:
+        stats.append(
+            {
+                "start": _stat_start(bridge_start),
+                "state": 0.0,
+                "sum": 0.0,
+            }
+        )
+        bridge_start += timedelta(days=1)
+
+    return _statistics_payload(meter_id, meter_label, stats), None, 0.0
+
+
 def import_statistics_payload(
     readings: list[IleoReading],
     *,
@@ -101,7 +135,16 @@ def import_statistics_payload(
     if not stats:
         return None, 0, previous_imported_date, previous_sum_litres
 
-    payload = {
+    payload = _statistics_payload(meter_id, meter_label, stats)
+    return payload, len(imported_readings), latest_reading_date, running_sum
+
+
+def _statistics_payload(
+    meter_id: str,
+    meter_label: str | None,
+    stats: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
         "metadata": {
             "has_mean": False,
             "has_sum": True,
@@ -114,7 +157,6 @@ def import_statistics_payload(
         },
         "stats": stats,
     }
-    return payload, len(imported_readings), latest_reading_date, running_sum
 
 
 def _stat_start(value: date) -> str:

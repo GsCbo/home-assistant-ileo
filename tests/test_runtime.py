@@ -358,7 +358,7 @@ def test_write_meter_sync_state_preserves_installation_id(tmp_path: Path) -> Non
 
 
 @pytest.mark.asyncio
-async def test_sync_once_imports_each_meter_with_readings_only(tmp_path: Path) -> None:
+async def test_sync_once_imports_empty_meter_as_zero_statistics(tmp_path: Path) -> None:
     state_path = tmp_path / "last_sync.json"
     ileo_client = FakeIleoClient(
         meter_readings=[
@@ -381,13 +381,31 @@ async def test_sync_once_imports_each_meter_with_readings_only(tmp_path: Path) -
 
     assert result.fetched_readings == 1
     assert result.imported_readings == 1
-    assert len(ha_client.statistics) == 1
+    assert len(ha_client.statistics) == 2
+    assert ha_client.statistics[1]["metadata"]["statistic_id"] == (
+        meter_statistic_id("7654321")
+    )
+    assert ha_client.statistics[1]["stats"][0] == {
+        "start": "2025-03-01T00:00:00+01:00",
+        "state": 0.0,
+        "sum": 0.0,
+    }
+    assert ha_client.statistics[1]["stats"][-1] == {
+        "start": "2026-07-08T00:00:00+02:00",
+        "state": 0.0,
+        "sum": 0.0,
+    }
     assert read_last_sync(state_path)["meters"]["1234567"] == {
         "last_imported_date": "2026-06-28",
         "latest_index_litres": 120180,
         "statistics_last_imported_date": "2026-06-28",
         "statistics_id": meter_statistic_id("1234567"),
         "statistics_sum_litres": 180.0,
+        "statistics_bridge_until_date": "2026-07-08",
+    }
+    assert read_last_sync(state_path)["meters"]["7654321"] == {
+        "statistics_id": meter_statistic_id("7654321"),
+        "statistics_sum_litres": 0.0,
         "statistics_bridge_until_date": "2026-07-08",
     }
 

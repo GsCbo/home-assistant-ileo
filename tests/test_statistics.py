@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "ileo"))
 
 from app.ileo_client import IleoReading
 from app.statistics import (
+    import_empty_statistics_payload,
     import_statistics_payload,
     meter_statistic_id,
 )
@@ -20,6 +21,39 @@ def test_meter_statistic_id_uses_external_ileo_namespace() -> None:
     assert meter_statistic_id("Contrat 12 Rue de Lille") == (
         "ileo:water_index_contrat_12_rue_de_lille"
     )
+
+
+def test_import_empty_statistics_payload_creates_zero_statistics_until_today() -> None:
+    payload, imported_date, running_sum = import_empty_statistics_payload(
+        meter_id="7654321",
+        meter_label="Compteur secondaire",
+        start_date=date(2026, 1, 1),
+        previous_bridge_until_date=None,
+        bridge_until=date(2026, 1, 3),
+    )
+
+    assert imported_date is None
+    assert running_sum == 0.0
+    assert payload is not None
+    assert payload["metadata"]["statistic_id"] == "ileo:water_index_7654321"
+    assert payload["metadata"]["name"] == "ILEO eau - Compteur secondaire"
+    assert payload["stats"] == [
+        {
+            "start": "2026-01-01T00:00:00+01:00",
+            "state": 0.0,
+            "sum": 0.0,
+        },
+        {
+            "start": "2026-01-02T00:00:00+01:00",
+            "state": 0.0,
+            "sum": 0.0,
+        },
+        {
+            "start": "2026-01-03T00:00:00+01:00",
+            "state": 0.0,
+            "sum": 0.0,
+        },
+    ]
 
 
 def test_import_statistics_payload_carries_forward_sum_until_today() -> None:

@@ -16,6 +16,7 @@ from .config import AppConfig, load_config
 from .ha_api import HomeAssistantClient
 from .ileo_client import DEFAULT_METER_ID, IleoApiClient, IleoMeter, IleoMeterReadings, IleoReading
 from .statistics import (
+    import_empty_statistics_payload,
     import_statistics_payload,
     meter_statistic_id,
 )
@@ -67,10 +68,10 @@ async def sync_once(
         fetched_readings += len(readings)
 
         meter_sync = read_meter_sync_state(state_path, meter.meter_id)
+        statistic_id = meter_statistic_id(meter.meter_id)
+        statistic_id_matches = meter_sync.get("statistics_id") == statistic_id
 
         if readings:
-            statistic_id = meter_statistic_id(meter.meter_id)
-            statistic_id_matches = meter_sync.get("statistics_id") == statistic_id
             previous_statistics_date = (
                 meter_sync.get("statistics_last_imported_date")
                 if statistic_id_matches
@@ -118,6 +119,32 @@ async def sync_once(
             write_meter_sync_state(state_path, meter.meter_id, meter_state)
             if latest_reading_date is None or latest.date.isoformat() > latest_reading_date:
                 latest_reading_date = latest.date.isoformat()
+        else:
+            previous_bridge_date = (
+                meter_sync.get("statistics_bridge_until_date")
+                if statistic_id_matches
+                else None
+            )
+            statistics_payload, _statistics_date, statistics_sum = (
+                import_empty_statistics_payload(
+                    meter_id=meter.meter_id,
+                    meter_label=meter_label,
+                    start_date=config.start_date,
+                    previous_bridge_until_date=previous_bridge_date,
+                    bridge_until=end_date,
+                )
+            )
+            if statistics_payload is not None:
+                await ha_client.async_import_statistics(statistics_payload)
+                write_meter_sync_state(
+                    state_path,
+                    meter.meter_id,
+                    {
+                        "statistics_id": statistic_id,
+                        "statistics_sum_litres": statistics_sum,
+                        "statistics_bridge_until_date": end_date.isoformat(),
+                    },
+                )
 
     result = SyncResult(
         fetched_readings=fetched_readings,
